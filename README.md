@@ -8,10 +8,10 @@ A Lovelace card for a humidifier that Home Assistant exposes as **separate ESPHo
 
 *Layout illustration — the card picks up your own Home Assistant theme.*
 
-- One `prefix:` line configures all eight entities.
-- Full or compact layout, switched with a single option.
-- Mode and fan level stay usable while the humidifier is off (`dim_when_off: true` to grey them out).
-- Status row turns red on connection loss, a device fault or an active alarm.
+- One `prefix:` line configures all seven entities.
+- Two lines: name with the live device fault, then one strip of controls.
+- Round buttons for power, indicator light and buzzer; mode and fan level stay usable while the humidifier is off.
+- Device fault is shown by default and turns red when the humidifier reports one.
 - Optimistic updates, so the slider does not snap back while you drag it.
 - Follows your Home Assistant theme — no hardcoded colours.
 - Ships with a GUI editor.
@@ -47,18 +47,17 @@ prefix: smart_humidifier
 name: Office Humidifier
 ```
 
-That derives all eight entities:
+That derives all seven entities:
 
 | Slot | Entity | Shown as |
 | --- | --- | --- |
-| `power` | `switch.<prefix>_humidifier` | header toggle |
+| `power` | `switch.<prefix>_humidifier` | round power button |
 | `mode` | `select.<prefix>_mode` | dropdown |
 | `fan_level` | `number.<prefix>_fan_level` | slider |
-| `light` | `switch.<prefix>_indicator_light` | toggle row |
-| `sound` | `switch.<prefix>_sound_buzzer` | toggle row |
-| `alarm` | `binary_sensor.<prefix>_alarm` | status chip |
-| `connection` | `binary_sensor.<prefix>_connection_status` | status chip |
-| `fault` | `sensor.<prefix>_device_fault` | status chip |
+| `light` | `switch.<prefix>_indicator_light` | icon button |
+| `sound` | `switch.<prefix>_sound_buzzer` | icon button |
+| `connection` | `binary_sensor.<prefix>_connection_status` | icon, top right |
+| `fault` | `sensor.<prefix>_device_fault` | second title line |
 
 ## Options
 
@@ -68,8 +67,7 @@ That derives all eight entities:
 | `prefix` | string | **required**¹ | Entity id prefix without the domain, e.g. `smart_humidifier` |
 | `name` | string | power entity's friendly name | Card title |
 | `icon` | string | `mdi:air-humidifier` | Header icon (falls back to `mdi:air-humidifier-off` when off) |
-| `compact` | boolean | `false` | Two-line layout — see [Compact layout](#compact-layout) |
-| `show_status` | boolean | `true` | Show the connection / fault / alarm row |
+| `show_status` | boolean | `true` | Show the device fault line and the connection icon |
 | `dim_when_off` | boolean | `false` | Grey out mode and fan level while the humidifier is off |
 | `hide` | list | `[]` | Slots to leave out, e.g. `[sound, light]` |
 | `entities` | map | — | Per-slot entity overrides, any subset of the slots above |
@@ -79,24 +77,6 @@ That derives all eight entities:
 Entity ids that do not exist are skipped and listed once in the browser console, so a partial
 setup still renders.
 
-### Compact layout
-
-`compact: true` folds the card into two lines: the title with icon-only status and the power
-switch, then one strip holding the mode dropdown, the fan slider and icon toggles for the
-indicator light and the buzzer.
-
-![Compact humidifier card layout](docs/card-layout-compact.svg)
-
-```yaml
-type: custom:humidifier-card
-prefix: smart_humidifier
-name: Office Humidifier
-compact: true
-```
-
-Everything still works the same — `hide`, `show_status` and the entity overrides all apply. Hover
-a status icon to see what it means.
-
 ### Full example
 
 ```yaml
@@ -104,7 +84,6 @@ type: custom:humidifier-card
 prefix: smart_humidifier
 name: Office Humidifier
 icon: mdi:air-humidifier
-compact: false
 show_status: true
 dim_when_off: false
 hide:

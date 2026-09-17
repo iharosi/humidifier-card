@@ -28,7 +28,6 @@ export interface HumidifierCardConfig {
   name?: string;
   icon?: string;
   show_status?: boolean;
-  compact?: boolean;
   dim_when_off?: boolean;
   hide?: Slot[];
   entities?: Partial<Record<Slot, string>>;

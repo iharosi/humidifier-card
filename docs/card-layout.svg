@@ -1,64 +1,46 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="360" height="286" viewBox="0 0 360 286" role="img" aria-label="Humidifier Card layout: power header, mode dropdown, fan level slider, indicator light and buzzer toggles, and a status row">
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="108" viewBox="0 0 360 108" role="img" aria-label="Humidifier card: name with the device fault beneath it and a connection icon, then a control strip with a power button, mode dropdown, fan slider and icon toggles for the indicator light and buzzer">
   <style>
-    .t  { font-family: Roboto, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
-    .name { font-size: 16px; font-weight: 500; fill: #212121; }
+    .t { font-family: Roboto, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .name { font-size: 15px; font-weight: 500; fill: #212121; }
     .sub  { font-size: 13px; fill: #727272; }
-    .lbl  { font-size: 14px; fill: #212121; }
     .val  { font-size: 14px; fill: #727272; }
-    .chip { font-size: 13px; fill: #727272; }
   </style>
 
-  <rect x="0.5" y="0.5" width="359" height="285" rx="12" fill="#ffffff" stroke="#e6e6e6"/>
+  <rect x="0.5" y="0.5" width="359" height="107" rx="12" fill="#ffffff" stroke="#e6e6e6"/>
 
-  <!-- header -->
-  <path d="M30 22c7 8 11 13 11 18a11 11 0 0 1-22 0c0-5 4-10 11-18z" fill="#03a9f4"/>
-  <text class="t name" x="56" y="33">Office Humidifier</text>
-  <text class="t sub"  x="56" y="52">On · Auto · Fan 2</text>
-  <rect x="308" y="30" width="36" height="14" rx="7" fill="#03a9f4" opacity="0.45"/>
-  <circle cx="338" cy="37" r="10" fill="#03a9f4"/>
+  <!-- title block -->
+  <path d="M25 17c6 7 9.5 11 9.5 15.5a9.5 9.5 0 0 1-19 0C15.5 28 19 24 25 17z" fill="#03a9f4"/>
+  <text class="t name" x="46" y="29">Office Humidifier</text>
+  <text class="t sub"  x="46" y="47">No fault</text>
 
-  <!-- mode row -->
-  <line x1="0" y1="68" x2="360" y2="68" stroke="#e0e0e0"/>
-  <text class="t lbl" x="16" y="95">Mode</text>
-  <rect x="210" y="76" width="134" height="28" rx="4" fill="#f5f5f5" stroke="#dcdcdc"/>
-  <text class="t val" x="222" y="95">Auto</text>
-  <path d="M325 87l5 6 5-6" fill="none" stroke="#727272" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-
-  <!-- fan level row -->
-  <line x1="0" y1="112" x2="360" y2="112" stroke="#eeeeee"/>
-  <text class="t lbl" x="16" y="139">Fan level</text>
-  <rect x="196" y="132" width="120" height="4" rx="2" fill="#e0e0e0"/>
-  <rect x="196" y="132" width="60"  height="4" rx="2" fill="#03a9f4"/>
-  <circle cx="256" cy="134" r="8" fill="#03a9f4"/>
-  <text class="t val" x="344" y="139" text-anchor="end">2</text>
-
-  <!-- indicator light row -->
-  <line x1="0" y1="156" x2="360" y2="156" stroke="#eeeeee"/>
-  <text class="t lbl" x="16" y="183">Indicator light</text>
-  <rect x="308" y="171" width="36" height="14" rx="7" fill="#03a9f4" opacity="0.45"/>
-  <circle cx="338" cy="178" r="10" fill="#03a9f4"/>
-
-  <!-- buzzer row -->
-  <line x1="0" y1="200" x2="360" y2="200" stroke="#eeeeee"/>
-  <text class="t lbl" x="16" y="227">Sound (buzzer)</text>
-  <rect x="308" y="215" width="36" height="14" rx="7" fill="#d5d5d5"/>
-  <circle cx="314" cy="222" r="10" fill="#fafafa" stroke="#c4c4c4"/>
-
-  <!-- status row -->
-  <line x1="0" y1="244" x2="360" y2="244" stroke="#e0e0e0"/>
-  <g stroke="#727272" stroke-width="1.5" fill="none" stroke-linecap="round">
-    <path d="M16 265.5a7 7 0 0 1 10 0"/>
-    <path d="M18.5 268.5a3.5 3.5 0 0 1 5 0"/>
+  <!-- connection icon -->
+  <g stroke="#727272" stroke-width="1.6" fill="none" stroke-linecap="round">
+    <path d="M325 29a9 9 0 0 1 13 0"/>
+    <path d="M328.5 33a4.5 4.5 0 0 1 6 0"/>
   </g>
-  <circle cx="21" cy="271.5" r="1.2" fill="#727272" stroke="none"/>
-  <text class="t chip" x="33" y="272">Online</text>
+  <circle cx="331.5" cy="37" r="1.5" fill="#727272"/>
 
-  <circle cx="109" cy="268" r="6.5" fill="none" stroke="#43a047" stroke-width="1.5"/>
-  <path d="M106 268l2.2 2.2 4-4.4" fill="none" stroke="#43a047" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-  <text class="t chip" x="121" y="272">No fault</text>
+  <!-- control strip -->
+  <circle cx="32" cy="78" r="20" fill="#03a9f4"/>
+  <path d="M32 68v10" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M25.5 71.5a9 9 0 1 0 13 0" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round"/>
 
-  <path d="M186 271c0-4.5 1.2-7 4.5-7s4.5 2.5 4.5 7z" fill="none" stroke="#43a047" stroke-width="1.5" stroke-linejoin="round"/>
-  <path d="M184 271h13" stroke="#43a047" stroke-width="1.5" stroke-linecap="round"/>
-  <path d="M188.8 273a1.8 1.8 0 0 0 3.4 0z" fill="#43a047"/>
-  <text class="t chip" x="203" y="272">No alarm</text>
+  <rect x="60" y="63" width="112" height="30" rx="4" fill="#f5f5f5" stroke="#dcdcdc"/>
+  <text class="t val" x="70" y="82">Auto</text>
+  <path d="M152 75l5 6 5-6" fill="none" stroke="#727272" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="182" y="76" width="62" height="4" rx="2" fill="#e0e0e0"/>
+  <rect x="182" y="76" width="31" height="4" rx="2" fill="#03a9f4"/>
+  <circle cx="213" cy="78" r="8" fill="#03a9f4"/>
+  <text class="t val" x="256" y="83">2</text>
+
+  <!-- indicator light: on -->
+  <circle cx="286" cy="78" r="18" fill="#03a9f4"/>
+  <path d="M286 69a5.5 5.5 0 0 0-3.2 10v2.2h6.4V79A5.5 5.5 0 0 0 286 69z" fill="#ffffff"/>
+  <path d="M283.4 83.6h5.2" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round"/>
+
+  <!-- buzzer: off -->
+  <circle cx="328" cy="78" r="18" fill="#e4e4e4"/>
+  <path d="M321 75h3l4-3.5v13l-4-3.5h-3z" fill="#8a8a8a"/>
+  <path d="M331.5 74.5l5 7M336.5 74.5l-5 7" stroke="#8a8a8a" stroke-width="1.6" stroke-linecap="round"/>
 </svg>

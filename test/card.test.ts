@@ -25,7 +25,6 @@ function makeHass(overrides: Record<string, HassEntity> = {}): HomeAssistant {
     }),
     [`switch.${PREFIX}_indicator_light`]: entity(`switch.${PREFIX}_indicator_light`, 'on'),
     [`switch.${PREFIX}_sound_buzzer`]: entity(`switch.${PREFIX}_sound_buzzer`, 'off'),
-    [`binary_sensor.${PREFIX}_alarm`]: entity(`binary_sensor.${PREFIX}_alarm`, 'off'),
     [`binary_sensor.${PREFIX}_connection_status`]: entity(
       `binary_sensor.${PREFIX}_connection_status`,
       'on',
@@ -52,6 +51,9 @@ async function mount(config: Partial<HumidifierCardConfig> = {}, hass = makeHass
   return { card, hass };
 }
 
+const toggles = (card: HTMLElement) =>
+  [...card.shadowRoot!.querySelectorAll('.icon-toggle')] as HTMLButtonElement[];
+
 describe('humidifier-card element', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
@@ -71,19 +73,119 @@ describe('humidifier-card element', () => {
     expect(() => card.setConfig({ type: 'custom:humidifier-card' })).toThrow(/prefix/);
   });
 
-  it('renders the name, every control row and the status chips', async () => {
+  it('renders the name, one control strip and no entity rows', async () => {
     const { card } = await mount({ name: 'Office Humidifier' });
-    const text = card.shadowRoot!.textContent ?? '';
+    const root = card.shadowRoot!;
 
-    expect(text).toContain('Office Humidifier');
-    expect(text).toContain('On · Auto · Fan 2');
-    expect(text).toContain('Mode');
-    expect(text).toContain('Fan level');
-    expect(text).toContain('Indicator light');
-    expect(text).toContain('Sound (buzzer)');
-    expect(text).toContain('Online');
-    expect(text).toContain('No fault');
-    expect(text).toContain('No alarm');
+    expect(root.textContent).toContain('Office Humidifier');
+    expect(root.querySelector('.strip')).not.toBeNull();
+    expect(root.querySelectorAll('.row').length).toBe(0);
+    expect(root.querySelector('ha-select')).not.toBeNull();
+    expect(root.querySelector('input[type="range"]')).not.toBeNull();
+    expect(card.getCardSize()).toBe(2);
+  });
+
+  it('puts power, light and buzzer in the strip as icon toggles', async () => {
+    const { card } = await mount();
+    const buttons = toggles(card);
+
+    expect(buttons.map((b) => b.getAttribute('title'))).toEqual([
+      'Humidifier',
+      'Indicator light',
+      'Sound (buzzer)',
+    ]);
+    expect(buttons[0].classList.contains('power')).toBe(true);
+    // power on, light on, buzzer off
+    expect(buttons.map((b) => b.classList.contains('on'))).toEqual([true, true, false]);
+  });
+
+  it('calls the switch services from the icon toggles', async () => {
+    const { card, hass } = await mount();
+    const [power, light, sound] = toggles(card);
+
+    power.click();
+    light.click();
+    sound.click();
+
+    expect(hass.callService).toHaveBeenCalledWith('switch', 'turn_off', {
+      entity_id: `switch.${PREFIX}_humidifier`,
+    });
+    expect(hass.callService).toHaveBeenCalledWith('switch', 'turn_off', {
+      entity_id: `switch.${PREFIX}_indicator_light`,
+    });
+    expect(hass.callService).toHaveBeenCalledWith('switch', 'turn_on', {
+      entity_id: `switch.${PREFIX}_sound_buzzer`,
+    });
+  });
+
+  it('shows the device fault on the second title line', async () => {
+    const { card } = await mount();
+    expect(card.shadowRoot!.querySelector('.sub')!.textContent).toContain('No fault');
+  });
+
+  it('highlights a real device fault', async () => {
+    const hass = makeHass({
+      [`sensor.${PREFIX}_device_fault`]: entity(`sensor.${PREFIX}_device_fault`, 'no_water'),
+    });
+    const { card } = await mount({}, hass);
+    const sub = card.shadowRoot!.querySelector('.sub')!;
+
+    expect(sub.textContent).toContain('No water');
+    expect(sub.classList.contains('bad')).toBe(true);
+  });
+
+  it('falls back to the power summary when there is no fault entity', async () => {
+    const { card } = await mount({ hide: ['fault'] });
+    expect(card.shadowRoot!.querySelector('.sub')!.textContent).toContain('On · Auto · Fan 2');
+  });
+
+  it('opens more-info for the fault entity from the subline', async () => {
+    const { card } = await mount();
+    const handler = vi.fn();
+    card.addEventListener('hass-more-info', handler);
+
+    (card.shadowRoot!.querySelector('.sub') as HTMLElement).click();
+
+    expect(handler.mock.calls[0][0].detail).toEqual({
+      entityId: `sensor.${PREFIX}_device_fault`,
+    });
+  });
+
+  it('shows connection as a single icon and flags it when offline', async () => {
+    const { card: online } = await mount();
+    expect(online.shadowRoot!.querySelector('.conn')!.classList.contains('bad')).toBe(false);
+
+    const hass = makeHass({
+      [`binary_sensor.${PREFIX}_connection_status`]: entity(
+        `binary_sensor.${PREFIX}_connection_status`,
+        'off',
+      ),
+    });
+    const { card: offline } = await mount({}, hass);
+    const conn = offline.shadowRoot!.querySelector('.conn')!;
+
+    expect(conn.classList.contains('bad')).toBe(true);
+    expect(conn.getAttribute('title')).toBe('Offline');
+  });
+
+  it('has no alarm indicator', async () => {
+    const hass = makeHass({
+      [`binary_sensor.${PREFIX}_alarm`]: entity(`binary_sensor.${PREFIX}_alarm`, 'on'),
+    });
+    const { card } = await mount({}, hass);
+
+    expect(card.shadowRoot!.textContent).not.toContain('Alarm');
+  });
+
+  it('rejects alarm as a configured slot', async () => {
+    const card = document.createElement('humidifier-card');
+    expect(() =>
+      card.setConfig({
+        type: 'custom:humidifier-card',
+        prefix: PREFIX,
+        hide: ['alarm' as never],
+      }),
+    ).toThrow(/unknown slot/);
   });
 
   it('builds the mode dropdown from the select entity options', async () => {
@@ -103,37 +205,25 @@ describe('humidifier-card element', () => {
       [`switch.${PREFIX}_humidifier`]: entity(`switch.${PREFIX}_humidifier`, 'off'),
     });
     const { card } = await mount({}, hass);
-
-    expect(card.shadowRoot!.querySelectorAll('.row.disabled').length).toBe(0);
     const slider = card.shadowRoot!.querySelector('input[type="range"]') as HTMLInputElement;
+
     expect(slider.disabled).toBe(false);
+    expect((card.shadowRoot!.querySelector('ha-select') as { disabled?: boolean }).disabled).toBe(
+      false,
+    );
   });
 
-  it('dims mode and fan rows while off when dim_when_off is set', async () => {
+  it('disables mode and fan while off when dim_when_off is set', async () => {
     const hass = makeHass({
       [`switch.${PREFIX}_humidifier`]: entity(`switch.${PREFIX}_humidifier`, 'off'),
     });
     const { card } = await mount({ dim_when_off: true }, hass);
-
-    expect(card.shadowRoot!.querySelectorAll('.row.disabled').length).toBe(2);
     const slider = card.shadowRoot!.querySelector('input[type="range"]') as HTMLInputElement;
+
     expect(slider.disabled).toBe(true);
-  });
-
-  it('still sets the fan level while the humidifier is off', async () => {
-    const hass = makeHass({
-      [`switch.${PREFIX}_humidifier`]: entity(`switch.${PREFIX}_humidifier`, 'off'),
-    });
-    const { card } = await mount({}, hass);
-    const slider = card.shadowRoot!.querySelector('input[type="range"]') as HTMLInputElement;
-
-    slider.value = '1';
-    slider.dispatchEvent(new Event('change'));
-
-    expect(hass.callService).toHaveBeenCalledWith('number', 'set_value', {
-      entity_id: `number.${PREFIX}_fan_level`,
-      value: 1,
-    });
+    expect((card.shadowRoot!.querySelector('ha-select') as { disabled?: boolean }).disabled).toBe(
+      true,
+    );
   });
 
   it('calls number.set_value when the fan slider is committed', async () => {
@@ -160,98 +250,26 @@ describe('humidifier-card element', () => {
     expect(card.shadowRoot!.querySelector('.value')!.textContent).toBe('3');
   });
 
-  it('shows Unavailable instead of a control for an unavailable entity', async () => {
+  it('disables the control for an unavailable entity', async () => {
     const hass = makeHass({
       [`select.${PREFIX}_mode`]: entity(`select.${PREFIX}_mode`, 'unavailable'),
+      [`switch.${PREFIX}_sound_buzzer`]: entity(`switch.${PREFIX}_sound_buzzer`, 'unavailable'),
     });
     const { card } = await mount({}, hass);
 
-    expect(card.shadowRoot!.querySelector('ha-select')).toBeNull();
-    expect(card.shadowRoot!.textContent).toContain('Unavailable');
-  });
-
-  it('flags an active alarm and a real device fault', async () => {
-    const hass = makeHass({
-      [`binary_sensor.${PREFIX}_alarm`]: entity(`binary_sensor.${PREFIX}_alarm`, 'on'),
-      [`sensor.${PREFIX}_device_fault`]: entity(`sensor.${PREFIX}_device_fault`, 'no_water'),
-      [`binary_sensor.${PREFIX}_connection_status`]: entity(
-        `binary_sensor.${PREFIX}_connection_status`,
-        'off',
-      ),
-    });
-    const { card } = await mount({}, hass);
-
-    const bad = [...card.shadowRoot!.querySelectorAll('.chip.bad')].map((c) =>
-      c.textContent?.trim(),
+    expect((card.shadowRoot!.querySelector('ha-select') as { disabled?: boolean }).disabled).toBe(
+      true,
     );
-    expect(bad).toEqual(['Offline', 'No water', 'Alarm']);
+    expect(toggles(card).find((b) => b.title === 'Sound (buzzer)')!.disabled).toBe(true);
   });
 
-  it('omits hidden rows and the status row when switched off', async () => {
-    const { card } = await mount({ hide: ['sound', 'light'], show_status: false });
-    const text = card.shadowRoot!.textContent ?? '';
+  it('omits hidden controls and the status indicators', async () => {
+    const { card } = await mount({ hide: ['light', 'sound'], show_status: false });
+    const root = card.shadowRoot!;
 
-    expect(text).not.toContain('Sound (buzzer)');
-    expect(text).not.toContain('Indicator light');
-    expect(card.shadowRoot!.querySelector('.status')).toBeNull();
-  });
-
-  describe('compact layout', () => {
-    it('renders a single control strip instead of rows', async () => {
-      const { card } = await mount({ compact: true });
-      const root = card.shadowRoot!;
-
-      expect(root.querySelector('ha-card')!.classList.contains('compact')).toBe(true);
-      expect(root.querySelector('.strip')).not.toBeNull();
-      expect(root.querySelectorAll('.row').length).toBe(0);
-      expect(root.querySelector('ha-select')).not.toBeNull();
-      expect(root.querySelector('input[type="range"]')).not.toBeNull();
-    });
-
-    it('drops the summary line and shows status as icons only', async () => {
-      const { card } = await mount({ compact: true });
-      const text = card.shadowRoot!.textContent ?? '';
-
-      expect(text).not.toContain('On · Auto · Fan 2');
-      expect(text).not.toContain('No fault');
-      expect(card.shadowRoot!.querySelectorAll('.status-compact .chip').length).toBe(3);
-    });
-
-    it('turns light and buzzer into icon toggles that call the switch services', async () => {
-      const { card, hass } = await mount({ compact: true });
-      const toggles = [...card.shadowRoot!.querySelectorAll('.icon-toggle')] as HTMLElement[];
-
-      expect(toggles.length).toBe(2);
-      // light is on -> tapping turns it off; buzzer is off -> tapping turns it on
-      expect(toggles[0].classList.contains('on')).toBe(true);
-      expect(toggles[1].classList.contains('on')).toBe(false);
-
-      toggles[0].click();
-      toggles[1].click();
-
-      expect(hass.callService).toHaveBeenCalledWith('switch', 'turn_off', {
-        entity_id: `switch.${PREFIX}_indicator_light`,
-      });
-      expect(hass.callService).toHaveBeenCalledWith('switch', 'turn_on', {
-        entity_id: `switch.${PREFIX}_sound_buzzer`,
-      });
-    });
-
-    it('omits hidden controls and the status icons', async () => {
-      const { card } = await mount({ compact: true, hide: ['light', 'sound'], show_status: false });
-
-      expect(card.shadowRoot!.querySelectorAll('.icon-toggle').length).toBe(0);
-      expect(card.shadowRoot!.querySelector('.status')).toBeNull();
-      expect(card.shadowRoot!.querySelector('.strip')).not.toBeNull();
-    });
-
-    it('reports a smaller card size than the full layout', async () => {
-      const { card } = await mount({ compact: true });
-      expect(card.getCardSize()).toBe(2);
-
-      const { card: full } = await mount();
-      expect(full.getCardSize()).toBeGreaterThan(2);
-    });
+    expect(toggles(card).length).toBe(1);
+    expect(root.querySelector('.conn')).toBeNull();
+    expect(root.querySelector('.sub')!.textContent).toContain('On · Auto · Fan 2');
   });
 
   it('renders a configuration warning when the power entity does not exist', async () => {
@@ -259,28 +277,13 @@ describe('humidifier-card element', () => {
     expect(card.shadowRoot!.querySelector('.warning')!.textContent).toContain('not found');
   });
 
-  it('turns the humidifier off through switch.turn_off', async () => {
-    const { card, hass } = await mount();
-    const toggle = card.shadowRoot!.querySelector('ha-switch') as HTMLElement & {
-      checked: boolean;
-    };
-
-    toggle.checked = false;
-    toggle.dispatchEvent(new Event('change'));
-
-    expect(hass.callService).toHaveBeenCalledWith('switch', 'turn_off', {
-      entity_id: `switch.${PREFIX}_humidifier`,
-    });
-  });
-
-  it('fires hass-more-info when the title is tapped', async () => {
+  it('fires hass-more-info when the name is tapped', async () => {
     const { card } = await mount();
     const handler = vi.fn();
     card.addEventListener('hass-more-info', handler);
 
-    (card.shadowRoot!.querySelector('.title') as HTMLElement).click();
+    (card.shadowRoot!.querySelector('.name') as HTMLElement).click();
 
-    expect(handler).toHaveBeenCalled();
     expect(handler.mock.calls[0][0].detail).toEqual({
       entityId: `switch.${PREFIX}_humidifier`,
     });

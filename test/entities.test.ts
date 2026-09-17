@@ -17,7 +17,6 @@ describe('resolveEntities', () => {
       fan_level: 'number.smart_humidifier_fan_level',
       light: 'switch.smart_humidifier_indicator_light',
       sound: 'switch.smart_humidifier_sound_buzzer',
-      alarm: 'binary_sensor.smart_humidifier_alarm',
       connection: 'binary_sensor.smart_humidifier_connection_status',
       fault: 'sensor.smart_humidifier_device_fault',
     });

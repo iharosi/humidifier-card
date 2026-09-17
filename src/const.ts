@@ -1,10 +1,11 @@
 export const CARD_NAME = 'humidifier-card';
 export const EDITOR_NAME = 'humidifier-card-editor';
-export const VERSION = '0.2.0';
+export const VERSION = '0.3.0';
 export const REPO_URL = 'https://github.com/iharosi/humidifier-card';
 
-export type Slot =
-  'power' | 'mode' | 'fan_level' | 'light' | 'sound' | 'alarm' | 'connection' | 'fault';
+export type Slot = 'power' | 'mode' | 'fan_level' | 'light' | 'sound' | 'connection' | 'fault';
+
+export type ToggleSlot = Extract<Slot, 'power' | 'light' | 'sound'>;
 
 export const SLOTS: readonly Slot[] = [
   'power',
@@ -12,7 +13,6 @@ export const SLOTS: readonly Slot[] = [
   'fan_level',
   'light',
   'sound',
-  'alarm',
   'connection',
   'fault',
 ] as const;
@@ -24,7 +24,6 @@ export const ENTITY_SUFFIXES: Record<Slot, { domain: string; suffix: string }> =
   fan_level: { domain: 'number', suffix: '_fan_level' },
   light: { domain: 'switch', suffix: '_indicator_light' },
   sound: { domain: 'switch', suffix: '_sound_buzzer' },
-  alarm: { domain: 'binary_sensor', suffix: '_alarm' },
   connection: { domain: 'binary_sensor', suffix: '_connection_status' },
   fault: { domain: 'sensor', suffix: '_device_fault' },
 };
@@ -35,16 +34,18 @@ export const SLOT_LABELS: Record<Slot, string> = {
   fan_level: 'Fan level',
   light: 'Indicator light',
   sound: 'Sound (buzzer)',
-  alarm: 'Alarm',
   connection: 'Connection',
   fault: 'Device fault',
 };
 
-/** Icons for the compact strip's icon-only toggles. */
-export const SLOT_TOGGLE_ICONS: Record<'light' | 'sound', { on: string; off: string }> = {
+/** Icons for the round toggle buttons in the control strip. */
+export const SLOT_TOGGLE_ICONS: Record<ToggleSlot, { on: string; off: string }> = {
+  power: { on: 'mdi:power', off: 'mdi:power' },
   light: { on: 'mdi:lightbulb', off: 'mdi:lightbulb-off-outline' },
   sound: { on: 'mdi:volume-high', off: 'mdi:volume-off' },
 };
+
+export const TOGGLE_SLOTS: readonly ToggleSlot[] = ['power', 'light', 'sound'] as const;
 
 export const DEFAULT_ICON = 'mdi:air-humidifier';
 export const DEFAULT_ICON_OFF = 'mdi:air-humidifier-off';
