@@ -9,7 +9,7 @@ A Lovelace card for a humidifier that Home Assistant exposes as **separate ESPHo
 *Layout illustration — the card picks up your own Home Assistant theme.*
 
 - One `prefix:` line configures all eight entities.
-- Mode and fan level grey out while the humidifier is off.
+- Mode and fan level stay usable while the humidifier is off (`dim_when_off: true` to grey them out).
 - Status row turns red on connection loss, a device fault or an active alarm.
 - Optimistic updates, so the slider does not snap back while you drag it.
 - Follows your Home Assistant theme — no hardcoded colours.
@@ -68,6 +68,7 @@ That derives all eight entities:
 | `name` | string | power entity's friendly name | Card title |
 | `icon` | string | `mdi:air-humidifier` | Header icon (falls back to `mdi:air-humidifier-off` when off) |
 | `show_status` | boolean | `true` | Show the connection / fault / alarm row |
+| `dim_when_off` | boolean | `false` | Grey out mode and fan level while the humidifier is off |
 | `hide` | list | `[]` | Slots to leave out, e.g. `[sound, light]` |
 | `entities` | map | — | Per-slot entity overrides, any subset of the slots above |
 
@@ -84,6 +85,7 @@ prefix: office_xiaomi_smart_humidifier_2
 name: Office Humidifier
 icon: mdi:air-humidifier
 show_status: true
+dim_when_off: false
 hide:
   - sound
 entities:

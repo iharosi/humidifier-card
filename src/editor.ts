@@ -15,6 +15,7 @@ const SCHEMA: HaFormSchema[] = [
   { name: 'name', selector: { text: {} } },
   { name: 'icon', selector: { icon: {} } },
   { name: 'show_status', selector: { boolean: {} } },
+  { name: 'dim_when_off', selector: { boolean: {} } },
   {
     name: 'hide',
     selector: {
@@ -32,6 +33,7 @@ const LABELS: Record<string, string> = {
   name: 'Name (optional)',
   icon: 'Icon (optional)',
   show_status: 'Show status row',
+  dim_when_off: 'Grey out mode and fan level while the humidifier is off',
   hide: 'Hide these controls',
 };
 

@@ -50,7 +50,7 @@ export class HumidifierCard extends LitElement {
 
   public setConfig(config: HumidifierCardConfig): void {
     validateConfig(config);
-    this._config = { show_status: true, ...config };
+    this._config = { show_status: true, dim_when_off: false, ...config };
     this._entities = resolveEntities(this._config);
     this._warnedMissing = false;
     this._clearAllPending();
@@ -103,6 +103,9 @@ export class HumidifierCard extends LitElement {
 
     const isOn = power.state === 'on';
     const powerAvailable = this._isAvailable(power);
+    // Home Assistant keeps the mode and fan-level entities controllable while the humidifier is
+    // off, and the device accepts them, so only dim them when the user opts in.
+    const controlsEnabled = !this._config.dim_when_off || (isOn && powerAvailable);
 
     return html`
       <ha-card>
@@ -130,9 +133,8 @@ export class HumidifierCard extends LitElement {
         </div>
 
         <div class="rows">
-          ${this._renderModeRow(isOn && powerAvailable)}
-          ${this._renderFanRow(isOn && powerAvailable)} ${this._renderSwitchRow('light')}
-          ${this._renderSwitchRow('sound')}
+          ${this._renderModeRow(controlsEnabled)} ${this._renderFanRow(controlsEnabled)}
+          ${this._renderSwitchRow('light')} ${this._renderSwitchRow('sound')}
         </div>
 
         ${this._config.show_status ? this._renderStatus() : nothing}

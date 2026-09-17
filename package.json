@@ -1,6 +1,6 @@
 {
   "name": "humidifier-card",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Lovelace card to display and control an ESPHome-exposed Xiaomi Smart Humidifier 2",
   "license": "MIT",
   "type": "module",

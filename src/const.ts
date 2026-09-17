@@ -1,6 +1,6 @@
 export const CARD_NAME = 'humidifier-card';
 export const EDITOR_NAME = 'humidifier-card-editor';
-export const VERSION = '0.1.0';
+export const VERSION = '0.1.1';
 export const REPO_URL = 'https://github.com/iharosi/humidifier-card';
 
 export type Slot =
