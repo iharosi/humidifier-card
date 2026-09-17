@@ -4,19 +4,9 @@ A Lovelace card for a humidifier that Home Assistant exposes as **separate ESPHo
 (`switch` / `select` / `number` / `binary_sensor` / `sensor`) rather than as a single
 `humidifier.*` or `fan.*` entity — for example a Xiaomi Smart Humidifier 2 flashed with ESPHome.
 
-```
-┌──────────────────────────────┐
-│ 💧 Office Humidifier    [⏻]  │
-│    On · Auto · Fan 2         │
-├──────────────────────────────┤
-│ Mode               Auto   ▾  │
-│ Fan level       ───●───   2  │
-│ Indicator light        [ ○]  │
-│ Sound (buzzer)         [○ ]  │
-├──────────────────────────────┤
-│ 📶 Online · ✓ No fault · 🔔 No alarm │
-└──────────────────────────────┘
-```
+![Humidifier Card layout](docs/card-layout.svg)
+
+*Layout illustration — the card picks up your own Home Assistant theme.*
 
 - One `prefix:` line configures all eight entities.
 - Mode and fan level grey out while the humidifier is off.

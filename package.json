@@ -37,5 +37,8 @@
     "url": "https://github.com/iharosi/humidifier-card/issues"
   },
   "homepage": "https://github.com/iharosi/humidifier-card#readme",
-  "author": "vision <vision.app.inc@gmail.com>"
+  "author": "vision <vision.app.inc@gmail.com>",
+  "engines": {
+    "node": ">=22.22.2"
+  }
 }
