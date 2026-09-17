@@ -19,9 +19,15 @@ A Lovelace card for a humidifier that Home Assistant exposes as **separate ESPHo
 
 ### HACS (recommended)
 
-1. HACS → **Frontend** → ⋮ → **Custom repositories**
-2. Repository: `https://github.com/iharosi/humidifier-card`, Category: **Dashboard** (plugin)
-3. Install **Humidifier Card**, then hard-refresh the browser (<kbd>Ctrl/Cmd</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>)
+1. HACS → ⋮ (top right) → **Custom repositories**
+2. Repository: `https://github.com/iharosi/humidifier-card`
+3. Type: **Dashboard** — on older HACS this is called **Plugin** or **Lovelace**
+4. Search HACS for **Humidifier Card**, download it, then hard-refresh the browser
+   (<kbd>Ctrl/Cmd</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>)
+
+> Picking **Integration** by mistake fails with *"Repository structure for v0.1.0 is not
+> compliant"* — integrations need a `custom_components/` folder, which a dashboard card
+> does not have. Remove the custom repository and add it again as **Dashboard**.
 
 HACS registers the dashboard resource for you.
 
