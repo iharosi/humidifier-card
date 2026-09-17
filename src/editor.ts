@@ -14,6 +14,7 @@ const SCHEMA: HaFormSchema[] = [
   { name: 'prefix', required: true, selector: { text: {} } },
   { name: 'name', selector: { text: {} } },
   { name: 'icon', selector: { icon: {} } },
+  { name: 'compact', selector: { boolean: {} } },
   { name: 'show_status', selector: { boolean: {} } },
   { name: 'dim_when_off', selector: { boolean: {} } },
   {
@@ -29,9 +30,10 @@ const SCHEMA: HaFormSchema[] = [
 ];
 
 const LABELS: Record<string, string> = {
-  prefix: 'Entity prefix (e.g. office_xiaomi_smart_humidifier_2)',
+  prefix: 'Entity prefix (e.g. smart_humidifier)',
   name: 'Name (optional)',
   icon: 'Icon (optional)',
+  compact: 'Compact layout (two lines)',
   show_status: 'Show status row',
   dim_when_off: 'Grey out mode and fan level while the humidifier is off',
   hide: 'Hide these controls',

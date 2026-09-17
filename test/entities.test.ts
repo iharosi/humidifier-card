@@ -6,20 +6,20 @@ import type { HumidifierCardConfig } from '../src/types';
 
 const base: HumidifierCardConfig = {
   type: 'custom:humidifier-card',
-  prefix: 'office_xiaomi_smart_humidifier_2',
+  prefix: 'smart_humidifier',
 };
 
 describe('resolveEntities', () => {
   it('derives all eight entity ids from the prefix', () => {
     expect(resolveEntities(base)).toEqual({
-      power: 'switch.office_xiaomi_smart_humidifier_2_humidifier',
-      mode: 'select.office_xiaomi_smart_humidifier_2_mode',
-      fan_level: 'number.office_xiaomi_smart_humidifier_2_fan_level',
-      light: 'switch.office_xiaomi_smart_humidifier_2_indicator_light',
-      sound: 'switch.office_xiaomi_smart_humidifier_2_sound_buzzer',
-      alarm: 'binary_sensor.office_xiaomi_smart_humidifier_2_alarm',
-      connection: 'binary_sensor.office_xiaomi_smart_humidifier_2_connection_status',
-      fault: 'sensor.office_xiaomi_smart_humidifier_2_device_fault',
+      power: 'switch.smart_humidifier_humidifier',
+      mode: 'select.smart_humidifier_mode',
+      fan_level: 'number.smart_humidifier_fan_level',
+      light: 'switch.smart_humidifier_indicator_light',
+      sound: 'switch.smart_humidifier_sound_buzzer',
+      alarm: 'binary_sensor.smart_humidifier_alarm',
+      connection: 'binary_sensor.smart_humidifier_connection_status',
+      fault: 'sensor.smart_humidifier_device_fault',
     });
   });
 
@@ -30,7 +30,7 @@ describe('resolveEntities', () => {
   it('lets an explicit entity override the derived id', () => {
     const resolved = resolveEntities({ ...base, entities: { fan_level: 'number.other' } });
     expect(resolved.fan_level).toBe('number.other');
-    expect(resolved.mode).toBe('select.office_xiaomi_smart_humidifier_2_mode');
+    expect(resolved.mode).toBe('select.smart_humidifier_mode');
   });
 
   it('omits hidden slots', () => {

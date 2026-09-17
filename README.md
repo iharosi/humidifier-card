@@ -9,6 +9,7 @@ A Lovelace card for a humidifier that Home Assistant exposes as **separate ESPHo
 *Layout illustration — the card picks up your own Home Assistant theme.*
 
 - One `prefix:` line configures all eight entities.
+- Full or compact layout, switched with a single option.
 - Mode and fan level stay usable while the humidifier is off (`dim_when_off: true` to grey them out).
 - Status row turns red on connection loss, a device fault or an active alarm.
 - Optimistic updates, so the slider does not snap back while you drag it.
@@ -42,7 +43,7 @@ HACS registers the dashboard resource for you.
 
 ```yaml
 type: custom:humidifier-card
-prefix: office_xiaomi_smart_humidifier_2
+prefix: smart_humidifier
 name: Office Humidifier
 ```
 
@@ -64,9 +65,10 @@ That derives all eight entities:
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `type` | string | **required** | `custom:humidifier-card` |
-| `prefix` | string | **required**¹ | Entity id prefix without the domain, e.g. `office_xiaomi_smart_humidifier_2` |
+| `prefix` | string | **required**¹ | Entity id prefix without the domain, e.g. `smart_humidifier` |
 | `name` | string | power entity's friendly name | Card title |
 | `icon` | string | `mdi:air-humidifier` | Header icon (falls back to `mdi:air-humidifier-off` when off) |
+| `compact` | boolean | `false` | Two-line layout — see [Compact layout](#compact-layout) |
 | `show_status` | boolean | `true` | Show the connection / fault / alarm row |
 | `dim_when_off` | boolean | `false` | Grey out mode and fan level while the humidifier is off |
 | `hide` | list | `[]` | Slots to leave out, e.g. `[sound, light]` |
@@ -77,13 +79,32 @@ That derives all eight entities:
 Entity ids that do not exist are skipped and listed once in the browser console, so a partial
 setup still renders.
 
+### Compact layout
+
+`compact: true` folds the card into two lines: the title with icon-only status and the power
+switch, then one strip holding the mode dropdown, the fan slider and icon toggles for the
+indicator light and the buzzer.
+
+![Compact humidifier card layout](docs/card-layout-compact.svg)
+
+```yaml
+type: custom:humidifier-card
+prefix: smart_humidifier
+name: Office Humidifier
+compact: true
+```
+
+Everything still works the same — `hide`, `show_status` and the entity overrides all apply. Hover
+a status icon to see what it means.
+
 ### Full example
 
 ```yaml
 type: custom:humidifier-card
-prefix: office_xiaomi_smart_humidifier_2
+prefix: smart_humidifier
 name: Office Humidifier
 icon: mdi:air-humidifier
+compact: false
 show_status: true
 dim_when_off: false
 hide:

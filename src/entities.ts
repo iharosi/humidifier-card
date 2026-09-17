@@ -60,8 +60,7 @@ export function validateConfig(config: HumidifierCardConfig): void {
 
   if (!config.prefix && !config.entities?.power) {
     throw new Error(
-      'humidifier-card: set `prefix` (e.g. office_xiaomi_smart_humidifier_2) ' +
-        'or at least `entities.power`',
+      'humidifier-card: set `prefix` (e.g. smart_humidifier) ' + 'or at least `entities.power`',
     );
   }
 }

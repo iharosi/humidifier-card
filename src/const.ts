@@ -1,6 +1,6 @@
 export const CARD_NAME = 'humidifier-card';
 export const EDITOR_NAME = 'humidifier-card-editor';
-export const VERSION = '0.1.1';
+export const VERSION = '0.2.0';
 export const REPO_URL = 'https://github.com/iharosi/humidifier-card';
 
 export type Slot =
@@ -38,6 +38,12 @@ export const SLOT_LABELS: Record<Slot, string> = {
   alarm: 'Alarm',
   connection: 'Connection',
   fault: 'Device fault',
+};
+
+/** Icons for the compact strip's icon-only toggles. */
+export const SLOT_TOGGLE_ICONS: Record<'light' | 'sound', { on: string; off: string }> = {
+  light: { on: 'mdi:lightbulb', off: 'mdi:lightbulb-off-outline' },
+  sound: { on: 'mdi:volume-high', off: 'mdi:volume-off' },
 };
 
 export const DEFAULT_ICON = 'mdi:air-humidifier';

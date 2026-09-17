@@ -11,6 +11,7 @@ import {
   NOMINAL_FAULTS,
   REPO_URL,
   SLOT_LABELS,
+  SLOT_TOGGLE_ICONS,
   UNAVAILABLE_STATES,
   VERSION,
   type Slot,
@@ -45,18 +46,20 @@ export class HumidifierCard extends LitElement {
   }
 
   public static getStubConfig(): Partial<HumidifierCardConfig> {
-    return { prefix: 'office_xiaomi_smart_humidifier_2' };
+    return { prefix: 'smart_humidifier' };
   }
 
   public setConfig(config: HumidifierCardConfig): void {
     validateConfig(config);
-    this._config = { show_status: true, dim_when_off: false, ...config };
+    this._config = { show_status: true, dim_when_off: false, compact: false, ...config };
     this._entities = resolveEntities(this._config);
     this._warnedMissing = false;
     this._clearAllPending();
   }
 
   public getCardSize(): number {
+    if (this._config?.compact) return 2;
+
     const rows = (['mode', 'fan_level', 'light', 'sound'] as Slot[]).filter(
       (slot) => this._entities[slot],
     ).length;
@@ -107,13 +110,37 @@ export class HumidifierCard extends LitElement {
     // off, and the device accepts them, so only dim them when the user opts in.
     const controlsEnabled = !this._config.dim_when_off || (isOn && powerAvailable);
 
+    return this._config.compact
+      ? this._renderCompact(power, isOn, powerAvailable, controlsEnabled)
+      : this._renderFull(power, isOn, powerAvailable, controlsEnabled);
+  }
+
+  private _renderHeaderIcon(isOn: boolean, powerAvailable: boolean): TemplateResult {
+    return html`<ha-icon
+      class=${classMap({ on: isOn && powerAvailable })}
+      .icon=${this._config!.icon ?? (isOn ? DEFAULT_ICON : DEFAULT_ICON_OFF)}
+    ></ha-icon>`;
+  }
+
+  private _renderPowerSwitch(isOn: boolean, powerAvailable: boolean): TemplateResult {
+    return html`<ha-switch
+      .checked=${isOn}
+      .disabled=${!powerAvailable}
+      aria-label=${SLOT_LABELS.power}
+      @change=${(ev: Event) => this._toggleSwitch('power', ev)}
+    ></ha-switch>`;
+  }
+
+  private _renderFull(
+    power: HassEntity,
+    isOn: boolean,
+    powerAvailable: boolean,
+    controlsEnabled: boolean,
+  ): TemplateResult {
     return html`
       <ha-card>
         <div class="header">
-          <ha-icon
-            class=${classMap({ on: isOn && powerAvailable })}
-            .icon=${this._config.icon ?? (isOn ? DEFAULT_ICON : DEFAULT_ICON_OFF)}
-          ></ha-icon>
+          ${this._renderHeaderIcon(isOn, powerAvailable)}
           <div
             class="title"
             tabindex="0"
@@ -124,12 +151,7 @@ export class HumidifierCard extends LitElement {
             <span class="name">${this._title(power)}</span>
             <span class="summary">${this._summary(power)}</span>
           </div>
-          <ha-switch
-            .checked=${isOn}
-            .disabled=${!powerAvailable}
-            aria-label=${SLOT_LABELS.power}
-            @change=${(ev: Event) => this._toggleSwitch('power', ev)}
-          ></ha-switch>
+          ${this._renderPowerSwitch(isOn, powerAvailable)}
         </div>
 
         <div class="rows">
@@ -137,9 +159,118 @@ export class HumidifierCard extends LitElement {
           ${this._renderSwitchRow('light')} ${this._renderSwitchRow('sound')}
         </div>
 
-        ${this._config.show_status ? this._renderStatus() : nothing}
+        ${this._config!.show_status ? this._renderStatus() : nothing}
       </ha-card>
     `;
+  }
+
+  /** Two-line variant: title with icon-only status, then one strip of controls. */
+  private _renderCompact(
+    power: HassEntity,
+    isOn: boolean,
+    powerAvailable: boolean,
+    controlsEnabled: boolean,
+  ): TemplateResult {
+    const strip = [
+      this._renderCompactMode(controlsEnabled),
+      this._renderCompactFan(controlsEnabled),
+      this._renderIconToggle('light'),
+      this._renderIconToggle('sound'),
+    ].filter((part) => part !== nothing);
+
+    return html`
+      <ha-card class="compact">
+        <div class="header">
+          ${this._renderHeaderIcon(isOn, powerAvailable)}
+          <div
+            class="title"
+            tabindex="0"
+            role="button"
+            @click=${() => this._moreInfo(this._entities.power)}
+            @keydown=${this._titleKeydown}
+          >
+            <span class="name">${this._title(power)}</span>
+          </div>
+          ${this._config!.show_status ? this._renderStatus(true) : nothing}
+          ${this._renderPowerSwitch(isOn, powerAvailable)}
+        </div>
+        ${strip.length ? html`<div class="strip">${strip}</div>` : nothing}
+      </ha-card>
+    `;
+  }
+
+  private _renderCompactMode(enabled: boolean): TemplateResult | typeof nothing {
+    const stateObj = this._stateObj('mode');
+    if (!stateObj) return nothing;
+
+    const available = this._isAvailable(stateObj);
+    const options = (stateObj.attributes.options as string[] | undefined) ?? [];
+    const value = (this._pending.mode as string | undefined) ?? stateObj.state;
+
+    return html`<ha-select
+      naturalMenuWidth
+      fixedMenuPosition
+      aria-label=${SLOT_LABELS.mode}
+      .value=${options.includes(value) ? value : ''}
+      .disabled=${!enabled || !available}
+      @selected=${this._modeSelected}
+      @click=${(ev: Event) => ev.stopPropagation()}
+      @closed=${(ev: Event) => ev.stopPropagation()}
+    >
+      ${options.map(
+        (option) =>
+          html`<ha-list-item .value=${option}>${this._format(stateObj, option)}</ha-list-item>`,
+      )}
+    </ha-select>`;
+  }
+
+  private _renderCompactFan(enabled: boolean): TemplateResult | typeof nothing {
+    const stateObj = this._stateObj('fan_level');
+    if (!stateObj) return nothing;
+
+    const available = this._isAvailable(stateObj);
+    const min = Number(stateObj.attributes.min ?? 1);
+    const max = Number(stateObj.attributes.max ?? 3);
+    const step = Number(stateObj.attributes.step ?? 1);
+    const value = Number(this._pending.fan_level ?? stateObj.state);
+    const safeValue = Number.isFinite(value) ? value : min;
+
+    return html`<div class="slider-wrap">
+      <input
+        type="range"
+        min=${min}
+        max=${max}
+        step=${step}
+        .value=${String(safeValue)}
+        ?disabled=${!enabled || !available}
+        aria-label=${SLOT_LABELS.fan_level}
+        @input=${this._fanInput}
+        @change=${this._fanChange}
+      />
+      <span class="value">${available ? safeValue : '–'}</span>
+    </div>`;
+  }
+
+  private _renderIconToggle(slot: 'light' | 'sound'): TemplateResult | typeof nothing {
+    const stateObj = this._stateObj(slot);
+    if (!stateObj) return nothing;
+
+    const available = this._isAvailable(stateObj);
+    const pending = this._pending[slot] as string | undefined;
+    const on = (pending ?? stateObj.state) === 'on';
+    const icons = SLOT_TOGGLE_ICONS[slot];
+
+    return html`<button
+      class=${classMap({ 'icon-toggle': true, on: on && available })}
+      type="button"
+      ?disabled=${!available}
+      title=${SLOT_LABELS[slot]}
+      aria-label=${SLOT_LABELS[slot]}
+      aria-pressed=${String(on)}
+      @click=${() => this._setSwitch(slot, !on)}
+    >
+      <ha-icon .icon=${on ? icons.on : icons.off}></ha-icon>
+    </button>`;
   }
 
   private _renderModeRow(enabled: boolean): TemplateResult | typeof nothing {
@@ -240,7 +371,7 @@ export class HumidifierCard extends LitElement {
     `;
   }
 
-  private _renderStatus(): TemplateResult | typeof nothing {
+  private _renderStatus(compact = false): TemplateResult | typeof nothing {
     const chips: TemplateResult[] = [];
 
     const connection = this._stateObj('connection');
@@ -253,6 +384,7 @@ export class HumidifierCard extends LitElement {
           this._isAvailable(connection) ? (online ? 'Online' : 'Offline') : 'Unavailable',
           this._isAvailable(connection) && !online,
           online,
+          compact,
         ),
       );
     }
@@ -267,6 +399,7 @@ export class HumidifierCard extends LitElement {
           this._isAvailable(fault) ? (faulty ? this._format(fault) : 'No fault') : 'Fault unknown',
           faulty,
           !faulty && this._isAvailable(fault),
+          compact,
         ),
       );
     }
@@ -281,12 +414,13 @@ export class HumidifierCard extends LitElement {
           this._isAvailable(alarm) ? (active ? 'Alarm' : 'No alarm') : 'Alarm unknown',
           active,
           !active && this._isAvailable(alarm),
+          compact,
         ),
       );
     }
 
     if (!chips.length) return nothing;
-    return html`<div class="status">${chips}</div>`;
+    return html`<div class=${classMap({ status: true, 'status-compact': compact })}>${chips}</div>`;
   }
 
   private _chip(
@@ -295,11 +429,14 @@ export class HumidifierCard extends LitElement {
     label: string,
     bad: boolean,
     good: boolean,
+    compact = false,
   ): TemplateResult {
     return html`<span
       class=${classMap({ chip: true, bad, good })}
       role="button"
       tabindex="0"
+      title=${label}
+      aria-label=${label}
       @click=${() => this._moreInfo(entityId)}
       @keydown=${(ev: KeyboardEvent) => {
         if (ev.key === 'Enter' || ev.key === ' ') {
@@ -308,7 +445,7 @@ export class HumidifierCard extends LitElement {
         }
       }}
     >
-      <ha-icon .icon=${icon}></ha-icon>${label}
+      <ha-icon .icon=${icon}></ha-icon>${compact ? nothing : label}
     </span>`;
   }
 
@@ -322,13 +459,16 @@ export class HumidifierCard extends LitElement {
   };
 
   private _toggleSwitch(slot: Slot, ev: Event): void {
+    this._setSwitch(slot, (ev.target as { checked?: boolean }).checked === true);
+  }
+
+  private _setSwitch(slot: Slot, on: boolean): void {
     const entityId = this._entities[slot];
     const stateObj = this._stateObj(slot);
     if (!entityId || !stateObj || !this.hass) return;
 
-    const checked = (ev.target as { checked?: boolean }).checked === true;
-    this._setPending(slot, checked ? 'on' : 'off');
-    void this.hass.callService('switch', checked ? 'turn_on' : 'turn_off', { entity_id: entityId });
+    this._setPending(slot, on ? 'on' : 'off');
+    void this.hass.callService('switch', on ? 'turn_on' : 'turn_off', { entity_id: entityId });
   }
 
   private _modeSelected = (ev: Event): void => {

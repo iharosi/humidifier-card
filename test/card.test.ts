@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import '../src/humidifier-card';
 import type { HassEntity, HomeAssistant, HumidifierCardConfig } from '../src/types';
 
-const PREFIX = 'office_xiaomi_smart_humidifier_2';
+const PREFIX = 'smart_humidifier';
 
 function entity(entity_id: string, state: string, attributes: Record<string, unknown> = {}) {
   return { entity_id, state, attributes, last_changed: '', last_updated: '' } as HassEntity;
@@ -194,6 +194,64 @@ describe('humidifier-card element', () => {
     expect(text).not.toContain('Sound (buzzer)');
     expect(text).not.toContain('Indicator light');
     expect(card.shadowRoot!.querySelector('.status')).toBeNull();
+  });
+
+  describe('compact layout', () => {
+    it('renders a single control strip instead of rows', async () => {
+      const { card } = await mount({ compact: true });
+      const root = card.shadowRoot!;
+
+      expect(root.querySelector('ha-card')!.classList.contains('compact')).toBe(true);
+      expect(root.querySelector('.strip')).not.toBeNull();
+      expect(root.querySelectorAll('.row').length).toBe(0);
+      expect(root.querySelector('ha-select')).not.toBeNull();
+      expect(root.querySelector('input[type="range"]')).not.toBeNull();
+    });
+
+    it('drops the summary line and shows status as icons only', async () => {
+      const { card } = await mount({ compact: true });
+      const text = card.shadowRoot!.textContent ?? '';
+
+      expect(text).not.toContain('On · Auto · Fan 2');
+      expect(text).not.toContain('No fault');
+      expect(card.shadowRoot!.querySelectorAll('.status-compact .chip').length).toBe(3);
+    });
+
+    it('turns light and buzzer into icon toggles that call the switch services', async () => {
+      const { card, hass } = await mount({ compact: true });
+      const toggles = [...card.shadowRoot!.querySelectorAll('.icon-toggle')] as HTMLElement[];
+
+      expect(toggles.length).toBe(2);
+      // light is on -> tapping turns it off; buzzer is off -> tapping turns it on
+      expect(toggles[0].classList.contains('on')).toBe(true);
+      expect(toggles[1].classList.contains('on')).toBe(false);
+
+      toggles[0].click();
+      toggles[1].click();
+
+      expect(hass.callService).toHaveBeenCalledWith('switch', 'turn_off', {
+        entity_id: `switch.${PREFIX}_indicator_light`,
+      });
+      expect(hass.callService).toHaveBeenCalledWith('switch', 'turn_on', {
+        entity_id: `switch.${PREFIX}_sound_buzzer`,
+      });
+    });
+
+    it('omits hidden controls and the status icons', async () => {
+      const { card } = await mount({ compact: true, hide: ['light', 'sound'], show_status: false });
+
+      expect(card.shadowRoot!.querySelectorAll('.icon-toggle').length).toBe(0);
+      expect(card.shadowRoot!.querySelector('.status')).toBeNull();
+      expect(card.shadowRoot!.querySelector('.strip')).not.toBeNull();
+    });
+
+    it('reports a smaller card size than the full layout', async () => {
+      const { card } = await mount({ compact: true });
+      expect(card.getCardSize()).toBe(2);
+
+      const { card: full } = await mount();
+      expect(full.getCardSize()).toBeGreaterThan(2);
+    });
   });
 
   it('renders a configuration warning when the power entity does not exist', async () => {

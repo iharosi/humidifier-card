@@ -194,6 +194,97 @@ export const cardStyles = css`
     color: var(--hc-good);
   }
 
+  /* ---------------------------------------------------------------- compact */
+
+  ha-card.compact {
+    padding: 8px 0;
+  }
+
+  ha-card.compact .header {
+    padding: 4px 12px 8px;
+    gap: 10px;
+  }
+
+  ha-card.compact .header ha-icon {
+    --mdc-icon-size: 24px;
+  }
+
+  ha-card.compact .name {
+    font-size: 15px;
+  }
+
+  .strip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 12px;
+    flex-wrap: wrap;
+  }
+
+  .strip ha-select {
+    width: 124px;
+    --mdc-menu-min-width: 124px;
+  }
+
+  .strip input[type='range'] {
+    width: 84px;
+  }
+
+  .strip .slider-wrap {
+    gap: 8px;
+    flex: 1 1 auto;
+    min-width: 120px;
+  }
+
+  .icon-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: var(--divider-color, rgba(127, 127, 127, 0.18));
+    color: var(--secondary-text-color);
+    cursor: pointer;
+    flex: 0 0 auto;
+    transition:
+      background 160ms ease-in-out,
+      color 160ms ease-in-out;
+  }
+
+  .icon-toggle ha-icon {
+    --mdc-icon-size: 20px;
+  }
+
+  .icon-toggle.on {
+    background: var(--hc-active);
+    color: var(--text-primary-color, #fff);
+  }
+
+  .icon-toggle:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .icon-toggle:focus-visible {
+    outline: 2px solid var(--hc-active);
+    outline-offset: 2px;
+  }
+
+  .status-compact {
+    padding: 0;
+    border-top: none;
+    gap: 2px;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+  }
+
+  .status-compact .chip ha-icon {
+    --mdc-icon-size: 18px;
+  }
+
   .warning {
     padding: 8px 16px;
     color: var(--hc-bad);
