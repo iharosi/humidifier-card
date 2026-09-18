@@ -1,6 +1,6 @@
 export const CARD_NAME = 'humidifier-card';
 export const EDITOR_NAME = 'humidifier-card-editor';
-export const VERSION = '0.3.0';
+export const VERSION = '0.4.0';
 export const REPO_URL = 'https://github.com/iharosi/humidifier-card';
 
 export type Slot = 'power' | 'mode' | 'fan_level' | 'light' | 'sound' | 'connection' | 'fault';
@@ -46,6 +46,9 @@ export const SLOT_TOGGLE_ICONS: Record<ToggleSlot, { on: string; off: string }> 
 };
 
 export const TOGGLE_SLOTS: readonly ToggleSlot[] = ['power', 'light', 'sound'] as const;
+
+/** Shown on the mode button when the mode select is rendered as a toggle. */
+export const MODE_ICON = 'mdi:auto-mode';
 
 export const DEFAULT_ICON = 'mdi:air-humidifier';
 export const DEFAULT_ICON_OFF = 'mdi:air-humidifier-off';

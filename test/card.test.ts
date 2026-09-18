@@ -188,6 +188,73 @@ describe('humidifier-card element', () => {
     ).toThrow(/unknown slot/);
   });
 
+  describe('mode with two options', () => {
+    const twoOptionHass = (state = 'Constant Humidity') =>
+      makeHass({
+        [`select.${PREFIX}_mode`]: entity(`select.${PREFIX}_mode`, state, {
+          options: ['None', 'Constant Humidity'],
+        }),
+      });
+
+    it('renders a button instead of a dropdown', async () => {
+      const { card } = await mount({}, twoOptionHass());
+
+      expect(card.shadowRoot!.querySelector('ha-select')).toBeNull();
+      expect(toggles(card).map((b) => b.getAttribute('title'))).toEqual([
+        'Humidifier',
+        'Mode: Constant Humidity',
+        'Indicator light',
+        'Sound (buzzer)',
+      ]);
+    });
+
+    it('treats the second option as on', async () => {
+      const { card: on } = await mount({}, twoOptionHass('Constant Humidity'));
+      const { card: off } = await mount({}, twoOptionHass('None'));
+
+      expect(toggles(on)[1].classList.contains('on')).toBe(true);
+      expect(toggles(off)[1].classList.contains('on')).toBe(false);
+    });
+
+    it('selects the other option when tapped', async () => {
+      const { card, hass } = await mount({}, twoOptionHass('None'));
+      toggles(card)[1].click();
+
+      expect(hass.callService).toHaveBeenCalledWith('select', 'select_option', {
+        entity_id: `select.${PREFIX}_mode`,
+        option: 'Constant Humidity',
+      });
+
+      const { card: on, hass: onHass } = await mount({}, twoOptionHass('Constant Humidity'));
+      toggles(on)[1].click();
+
+      expect(onHass.callService).toHaveBeenCalledWith('select', 'select_option', {
+        entity_id: `select.${PREFIX}_mode`,
+        option: 'None',
+      });
+    });
+
+    it('lets mode_on pick which option means on', async () => {
+      const { card } = await mount({ mode_on: 'None' }, twoOptionHass('None'));
+      expect(toggles(card)[1].classList.contains('on')).toBe(true);
+    });
+
+    it('turns a three-option select into a button when mode_on is set', async () => {
+      const { card } = await mount({ mode_on: 'sleep' });
+
+      expect(card.shadowRoot!.querySelector('ha-select')).toBeNull();
+      expect(toggles(card)[1].getAttribute('title')).toBe('Mode: Auto');
+    });
+
+    it('disables the mode button while off when dim_when_off is set', async () => {
+      const hass = twoOptionHass();
+      hass.states[`switch.${PREFIX}_humidifier`] = entity(`switch.${PREFIX}_humidifier`, 'off');
+      const { card } = await mount({ dim_when_off: true }, hass);
+
+      expect(toggles(card)[1].disabled).toBe(true);
+    });
+  });
+
   it('builds the mode dropdown from the select entity options', async () => {
     const { card } = await mount();
     const items = [...card.shadowRoot!.querySelectorAll('ha-list-item')];

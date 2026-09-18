@@ -14,6 +14,7 @@ const SCHEMA: HaFormSchema[] = [
   { name: 'prefix', required: true, selector: { text: {} } },
   { name: 'name', selector: { text: {} } },
   { name: 'icon', selector: { icon: {} } },
+  { name: 'mode_on', selector: { text: {} } },
   { name: 'show_status', selector: { boolean: {} } },
   { name: 'dim_when_off', selector: { boolean: {} } },
   {
@@ -32,6 +33,7 @@ const LABELS: Record<string, string> = {
   prefix: 'Entity prefix (e.g. smart_humidifier)',
   name: 'Name (optional)',
   icon: 'Icon (optional)',
+  mode_on: 'Mode option that counts as "on" (optional)',
   show_status: 'Show status row',
   dim_when_off: 'Grey out mode and fan level while the humidifier is off',
   hide: 'Hide these controls',
@@ -69,6 +71,7 @@ export class HumidifierCardEditor extends LitElement {
     // generated YAML stays minimal.
     if (!next.name) delete next.name;
     if (!next.icon) delete next.icon;
+    if (!next.mode_on) delete next.mode_on;
     if (!next.hide?.length) delete next.hide;
     if (next.hide) next.hide = next.hide.filter((slot) => SLOTS.includes(slot as Slot));
 

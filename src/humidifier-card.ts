@@ -8,6 +8,7 @@ import {
   DEFAULT_ICON,
   DEFAULT_ICON_OFF,
   EDITOR_NAME,
+  MODE_ICON,
   NOMINAL_FAULTS,
   REPO_URL,
   SLOT_LABELS,
@@ -217,8 +218,55 @@ export class HumidifierCard extends LitElement {
     const stateObj = this._stateObj('mode');
     if (!stateObj) return nothing;
 
-    const available = this._isAvailable(stateObj);
     const options = (stateObj.attributes.options as string[] | undefined) ?? [];
+    const onOption = this._modeOnOption(options);
+
+    return onOption
+      ? this._renderModeToggle(stateObj, options, onOption, enabled)
+      : this._renderModeSelect(stateObj, options, enabled);
+  }
+
+  /**
+   * A select with only two options reads better as a button than as a dropdown. `mode_on` names
+   * the option that counts as "on"; otherwise the second option is used.
+   */
+  private _modeOnOption(options: string[]): string | undefined {
+    return this._config!.mode_on ?? (options.length === 2 ? options[1] : undefined);
+  }
+
+  private _renderModeToggle(
+    stateObj: HassEntity,
+    options: string[],
+    onOption: string,
+    enabled: boolean,
+  ): TemplateResult {
+    const available = this._isAvailable(stateObj);
+    const current = (this._pending.mode as string | undefined) ?? stateObj.state;
+    const on = current === onOption;
+    const offOption = options.find((option) => option !== onOption);
+    const label = available
+      ? `${SLOT_LABELS.mode}: ${this._format(stateObj, current)}`
+      : SLOT_LABELS.mode;
+
+    return html`<button
+      class=${classMap({ 'icon-toggle': true, on: on && available })}
+      type="button"
+      ?disabled=${!enabled || !available}
+      title=${label}
+      aria-label=${label}
+      aria-pressed=${String(on)}
+      @click=${() => this._setMode(on ? offOption : onOption)}
+    >
+      <ha-icon .icon=${MODE_ICON}></ha-icon>
+    </button>`;
+  }
+
+  private _renderModeSelect(
+    stateObj: HassEntity,
+    options: string[],
+    enabled: boolean,
+  ): TemplateResult {
+    const available = this._isAvailable(stateObj);
     const value = (this._pending.mode as string | undefined) ?? stateObj.state;
 
     return html`<ha-select
@@ -283,16 +331,20 @@ export class HumidifierCard extends LitElement {
   }
 
   private _modeSelected = (ev: Event): void => {
-    const entityId = this._entities.mode;
     const stateObj = this._stateObj('mode');
-    if (!entityId || !stateObj || !this.hass) return;
-
     const value = (ev.target as { value?: string }).value;
-    if (!value || value === stateObj.state) return;
+    if (!stateObj || !value || value === stateObj.state) return;
 
-    this._setPending('mode', value);
-    void this.hass.callService('select', 'select_option', { entity_id: entityId, option: value });
+    this._setMode(value);
   };
+
+  private _setMode(option?: string): void {
+    const entityId = this._entities.mode;
+    if (!option || !entityId || !this.hass) return;
+
+    this._setPending('mode', option);
+    void this.hass.callService('select', 'select_option', { entity_id: entityId, option });
+  }
 
   private _fanInput = (ev: Event): void => {
     const value = Number((ev.target as HTMLInputElement).value);

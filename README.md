@@ -10,7 +10,7 @@ A Lovelace card for a humidifier that Home Assistant exposes as **separate ESPHo
 
 - One `prefix:` line configures all seven entities.
 - Two lines: name with the live device fault, then one strip of controls.
-- Round buttons for power, indicator light and buzzer; mode and fan level stay usable while the humidifier is off.
+- Round buttons for power, mode, indicator light and buzzer; mode and fan level stay usable while the humidifier is off.
 - Device fault is shown by default and turns red when the humidifier reports one.
 - Optimistic updates, so the slider does not snap back while you drag it.
 - Follows your Home Assistant theme — no hardcoded colours.
@@ -52,7 +52,7 @@ That derives all seven entities:
 | Slot | Entity | Shown as |
 | --- | --- | --- |
 | `power` | `switch.<prefix>_humidifier` | round power button |
-| `mode` | `select.<prefix>_mode` | dropdown |
+| `mode` | `select.<prefix>_mode` | button, or a dropdown with more than two options |
 | `fan_level` | `number.<prefix>_fan_level` | slider |
 | `light` | `switch.<prefix>_indicator_light` | icon button |
 | `sound` | `switch.<prefix>_sound_buzzer` | icon button |
@@ -67,6 +67,7 @@ That derives all seven entities:
 | `prefix` | string | **required**¹ | Entity id prefix without the domain, e.g. `smart_humidifier` |
 | `name` | string | power entity's friendly name | Card title |
 | `icon` | string | `mdi:air-humidifier` | Header icon (falls back to `mdi:air-humidifier-off` when off) |
+| `mode_on` | string | second option | Mode option that counts as "on" — see [Mode](#mode) |
 | `show_status` | boolean | `true` | Show the device fault line and the connection icon |
 | `dim_when_off` | boolean | `false` | Grey out mode and fan level while the humidifier is off |
 | `hide` | list | `[]` | Slots to leave out, e.g. `[sound, light]` |
@@ -77,6 +78,30 @@ That derives all seven entities:
 Entity ids that do not exist are skipped and listed once in the browser console, so a partial
 setup still renders.
 
+### Mode
+
+A mode select with exactly two options is drawn as a button rather than a dropdown, since a
+dropdown for two choices is mostly wasted space. The second option counts as "on":
+
+```yaml
+# ESPHome
+select:
+  - platform: miot
+    name: "Mode"
+    options:
+      0: "None"                # button off
+      1: "Constant Humidity"   # button on
+```
+
+Set `mode_on` when the order is the other way round, or to force the button on a select with more
+than two options — every other option then counts as "off":
+
+```yaml
+mode_on: Constant Humidity
+```
+
+Hover the button to see the current mode.
+
 ### Full example
 
 ```yaml
@@ -84,6 +109,7 @@ type: custom:humidifier-card
 prefix: smart_humidifier
 name: Office Humidifier
 icon: mdi:air-humidifier
+mode_on: Constant Humidity
 show_status: true
 dim_when_off: false
 hide:
