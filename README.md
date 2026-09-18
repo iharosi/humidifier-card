@@ -8,9 +8,10 @@ A Lovelace card for a humidifier that Home Assistant exposes as **separate ESPHo
 
 *Layout illustration — the card picks up your own Home Assistant theme.*
 
-- One `prefix:` line configures all seven entities.
+- One `prefix:` line configures all nine entities.
 - Two lines: name with the live device fault, then one strip of controls.
 - Round buttons for power, mode, indicator light and buzzer; mode and fan level stay usable while the humidifier is off.
+- Current humidity on the title line, target humidity on its own slider row.
 - Device fault is shown by default and turns red when the humidifier reports one.
 - Optimistic updates, so the slider does not snap back while you drag it.
 - Follows your Home Assistant theme — no hardcoded colours.
@@ -47,13 +48,15 @@ prefix: smart_humidifier
 name: Office Humidifier
 ```
 
-That derives all seven entities:
+That derives all nine entities:
 
 | Slot | Entity | Shown as |
 | --- | --- | --- |
 | `power` | `switch.<prefix>_humidifier` | round power button |
 | `mode` | `select.<prefix>_mode` | button, or a dropdown with more than two options |
-| `fan_level` | `number.<prefix>_fan_level` | slider |
+| `fan_level` | `number.<prefix>_fan_level` | slider in the strip |
+| `target_humidity` | `number.<prefix>_target_humidity` | labelled slider row |
+| `humidity` | `sensor.<prefix>_humidity` | reading, top right |
 | `light` | `switch.<prefix>_indicator_light` | icon button |
 | `sound` | `switch.<prefix>_sound_buzzer` | icon button |
 | `connection` | `binary_sensor.<prefix>_connection_status` | icon, top right |
@@ -102,6 +105,9 @@ mode_on: Constant Humidity
 
 Hover the button to see the current mode.
 
+While the mode button is **on**, the target humidity slider is disabled — the device is
+regulating to the target itself. It becomes editable again when the mode is off.
+
 ### Full example
 
 ```yaml
@@ -114,6 +120,7 @@ show_status: true
 dim_when_off: false
 hide:
   - sound
+  - humidity
 entities:
   fan_level: number.office_humidifier_speed
 ```

@@ -23,6 +23,16 @@ function makeHass(overrides: Record<string, HassEntity> = {}): HomeAssistant {
       max: 3,
       step: 1,
     }),
+    [`number.${PREFIX}_target_humidity`]: entity(`number.${PREFIX}_target_humidity`, '55', {
+      min: 40,
+      max: 70,
+      step: 1,
+      unit_of_measurement: '%',
+    }),
+    [`sensor.${PREFIX}_humidity`]: entity(`sensor.${PREFIX}_humidity`, '48', {
+      unit_of_measurement: '%',
+      device_class: 'humidity',
+    }),
     [`switch.${PREFIX}_indicator_light`]: entity(`switch.${PREFIX}_indicator_light`, 'on'),
     [`switch.${PREFIX}_sound_buzzer`]: entity(`switch.${PREFIX}_sound_buzzer`, 'off'),
     [`binary_sensor.${PREFIX}_connection_status`]: entity(
@@ -54,6 +64,13 @@ async function mount(config: Partial<HumidifierCardConfig> = {}, hass = makeHass
 const toggles = (card: HTMLElement) =>
   [...card.shadowRoot!.querySelectorAll('.icon-toggle')] as HTMLButtonElement[];
 
+const sliders = (card: HTMLElement) =>
+  [...card.shadowRoot!.querySelectorAll('input[type="range"]')] as HTMLInputElement[];
+
+/** [fan level, target humidity] in render order. */
+const fanSlider = (card: HTMLElement) => sliders(card)[0];
+const targetSlider = (card: HTMLElement) => sliders(card)[1];
+
 describe('humidifier-card element', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
@@ -73,16 +90,16 @@ describe('humidifier-card element', () => {
     expect(() => card.setConfig({ type: 'custom:humidifier-card' })).toThrow(/prefix/);
   });
 
-  it('renders the name, one control strip and no entity rows', async () => {
+  it('renders the name, one control strip and the target humidity row', async () => {
     const { card } = await mount({ name: 'Office Humidifier' });
     const root = card.shadowRoot!;
 
     expect(root.textContent).toContain('Office Humidifier');
     expect(root.querySelector('.strip')).not.toBeNull();
-    expect(root.querySelectorAll('.row').length).toBe(0);
+    expect(root.querySelectorAll('.row').length).toBe(1);
     expect(root.querySelector('ha-select')).not.toBeNull();
     expect(root.querySelector('input[type="range"]')).not.toBeNull();
-    expect(card.getCardSize()).toBe(2);
+    expect(card.getCardSize()).toBe(3);
   });
 
   it('puts power, light and buzzer in the strip as icon toggles', async () => {
@@ -337,6 +354,82 @@ describe('humidifier-card element', () => {
     expect(toggles(card).length).toBe(1);
     expect(root.querySelector('.conn')).toBeNull();
     expect(root.querySelector('.sub')!.textContent).toContain('On · Auto · Fan 2');
+  });
+
+  describe('humidity', () => {
+    const twoOptionHass = (mode = 'None') =>
+      makeHass({
+        [`select.${PREFIX}_mode`]: entity(`select.${PREFIX}_mode`, mode, {
+          options: ['None', 'Constant Humidity'],
+        }),
+      });
+
+    it('shows the current humidity next to the connection icon', async () => {
+      const { card } = await mount();
+      expect(card.shadowRoot!.querySelector('.readout')!.textContent).toBe('48%');
+    });
+
+    it('opens more-info for the humidity sensor', async () => {
+      const { card } = await mount();
+      const handler = vi.fn();
+      card.addEventListener('hass-more-info', handler);
+
+      (card.shadowRoot!.querySelector('.readout') as HTMLElement).click();
+
+      expect(handler.mock.calls[0][0].detail).toEqual({
+        entityId: `sensor.${PREFIX}_humidity`,
+      });
+    });
+
+    it('renders the target humidity as a labelled row with its unit', async () => {
+      const { card } = await mount();
+      const row = card.shadowRoot!.querySelector('.row')!;
+      const slider = targetSlider(card);
+
+      expect(row.querySelector('.row-label')!.textContent).toBe('Target humidity');
+      expect([slider.min, slider.max, slider.step, slider.value]).toEqual(['40', '70', '1', '55']);
+      expect(row.querySelector('.value')!.textContent).toBe('55%');
+    });
+
+    it('sets the target humidity on commit', async () => {
+      const { card, hass } = await mount();
+      const slider = targetSlider(card);
+
+      slider.value = '60';
+      slider.dispatchEvent(new Event('change'));
+
+      expect(hass.callService).toHaveBeenCalledWith('number', 'set_value', {
+        entity_id: `number.${PREFIX}_target_humidity`,
+        value: 60,
+      });
+    });
+
+    it('disables the target slider while constant humidity is on', async () => {
+      const { card } = await mount({}, twoOptionHass('Constant Humidity'));
+      expect(targetSlider(card).disabled).toBe(true);
+      expect(fanSlider(card).disabled).toBe(false);
+    });
+
+    it('enables the target slider while constant humidity is off', async () => {
+      const { card } = await mount({}, twoOptionHass('None'));
+      expect(targetSlider(card).disabled).toBe(false);
+    });
+
+    it('locks the target slider as soon as the mode button is tapped', async () => {
+      const { card } = await mount({}, twoOptionHass('None'));
+      toggles(card)[1].click();
+      await card.updateComplete;
+
+      expect(targetSlider(card).disabled).toBe(true);
+    });
+
+    it('drops the row and the readout when hidden', async () => {
+      const { card } = await mount({ hide: ['target_humidity', 'humidity'] });
+
+      expect(card.shadowRoot!.querySelector('.row')).toBeNull();
+      expect(card.shadowRoot!.querySelector('.readout')).toBeNull();
+      expect(card.getCardSize()).toBe(2);
+    });
   });
 
   it('renders a configuration warning when the power entity does not exist', async () => {

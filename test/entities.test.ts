@@ -10,11 +10,13 @@ const base: HumidifierCardConfig = {
 };
 
 describe('resolveEntities', () => {
-  it('derives all eight entity ids from the prefix', () => {
+  it('derives every entity id from the prefix', () => {
     expect(resolveEntities(base)).toEqual({
       power: 'switch.smart_humidifier_humidifier',
       mode: 'select.smart_humidifier_mode',
       fan_level: 'number.smart_humidifier_fan_level',
+      target_humidity: 'number.smart_humidifier_target_humidity',
+      humidity: 'sensor.smart_humidifier_humidity',
       light: 'switch.smart_humidifier_indicator_light',
       sound: 'switch.smart_humidifier_sound_buzzer',
       connection: 'binary_sensor.smart_humidifier_connection_status',
@@ -66,8 +68,8 @@ describe('validateConfig', () => {
   });
 
   it('rejects unknown slot names', () => {
-    expect(() => validateConfig({ ...base, hide: ['humidity' as never] })).toThrow(/unknown slot/);
-    expect(() => validateConfig({ ...base, entities: { humidity: 'sensor.x' } as never })).toThrow(
+    expect(() => validateConfig({ ...base, hide: ['pressure' as never] })).toThrow(/unknown slot/);
+    expect(() => validateConfig({ ...base, entities: { pressure: 'sensor.x' } as never })).toThrow(
       /unknown slot/,
     );
   });

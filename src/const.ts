@@ -1,9 +1,20 @@
 export const CARD_NAME = 'humidifier-card';
 export const EDITOR_NAME = 'humidifier-card-editor';
-export const VERSION = '0.4.0';
+export const VERSION = '0.5.0';
 export const REPO_URL = 'https://github.com/iharosi/humidifier-card';
 
-export type Slot = 'power' | 'mode' | 'fan_level' | 'light' | 'sound' | 'connection' | 'fault';
+export type Slot =
+  | 'power'
+  | 'mode'
+  | 'fan_level'
+  | 'target_humidity'
+  | 'humidity'
+  | 'light'
+  | 'sound'
+  | 'connection'
+  | 'fault';
+
+export type NumberSlot = Extract<Slot, 'fan_level' | 'target_humidity'>;
 
 export type ToggleSlot = Extract<Slot, 'power' | 'light' | 'sound'>;
 
@@ -11,6 +22,8 @@ export const SLOTS: readonly Slot[] = [
   'power',
   'mode',
   'fan_level',
+  'target_humidity',
+  'humidity',
   'light',
   'sound',
   'connection',
@@ -22,6 +35,8 @@ export const ENTITY_SUFFIXES: Record<Slot, { domain: string; suffix: string }> =
   power: { domain: 'switch', suffix: '_humidifier' },
   mode: { domain: 'select', suffix: '_mode' },
   fan_level: { domain: 'number', suffix: '_fan_level' },
+  target_humidity: { domain: 'number', suffix: '_target_humidity' },
+  humidity: { domain: 'sensor', suffix: '_humidity' },
   light: { domain: 'switch', suffix: '_indicator_light' },
   sound: { domain: 'switch', suffix: '_sound_buzzer' },
   connection: { domain: 'binary_sensor', suffix: '_connection_status' },
@@ -32,6 +47,8 @@ export const SLOT_LABELS: Record<Slot, string> = {
   power: 'Humidifier',
   mode: 'Mode',
   fan_level: 'Fan level',
+  target_humidity: 'Target humidity',
+  humidity: 'Humidity',
   light: 'Indicator light',
   sound: 'Sound (buzzer)',
   connection: 'Connection',

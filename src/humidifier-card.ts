@@ -15,6 +15,7 @@ import {
   SLOT_TOGGLE_ICONS,
   UNAVAILABLE_STATES,
   VERSION,
+  type NumberSlot,
   type Slot,
   type ToggleSlot,
 } from './const';
@@ -60,7 +61,7 @@ export class HumidifierCard extends LitElement {
   }
 
   public getCardSize(): number {
-    return 2;
+    return this._stateObj('target_humidity') ? 3 : 2;
   }
 
   public override disconnectedCallback(): void {
@@ -110,7 +111,7 @@ export class HumidifierCard extends LitElement {
     const strip = [
       this._renderToggle('power'),
       this._renderMode(controlsEnabled),
-      this._renderFan(controlsEnabled),
+      this._renderNumber('fan_level', controlsEnabled),
       this._renderToggle('light'),
       this._renderToggle('sound'),
     ].filter((part) => part !== nothing);
@@ -133,9 +134,10 @@ export class HumidifierCard extends LitElement {
             >
             ${this._renderSubline(power)}
           </div>
-          ${this._renderConnection()}
+          ${this._renderHumidity()} ${this._renderConnection()}
         </div>
         ${strip.length ? html`<div class="strip">${strip}</div>` : nothing}
+        ${this._renderTargetRow(controlsEnabled)}
       </ha-card>
     `;
   }
@@ -190,6 +192,50 @@ export class HumidifierCard extends LitElement {
     >
       <ha-icon .icon=${online ? 'mdi:wifi' : 'mdi:wifi-off'}></ha-icon>
     </span>`;
+  }
+
+  /** Current room humidity, read straight off the sensor entity. */
+  private _renderHumidity(): TemplateResult | typeof nothing {
+    const stateObj = this._stateObj('humidity');
+    if (!stateObj) return nothing;
+
+    const available = this._isAvailable(stateObj);
+    return html`<span
+      class="readout"
+      role="button"
+      tabindex="0"
+      title=${SLOT_LABELS.humidity}
+      aria-label=${SLOT_LABELS.humidity}
+      @click=${() => this._moreInfo(this._entities.humidity)}
+      @keydown=${(ev: KeyboardEvent) => this._activate(ev, this._entities.humidity)}
+      >${available ? this._format(stateObj) : '–'}</span
+    >`;
+  }
+
+  private _renderTargetRow(enabled: boolean): TemplateResult | typeof nothing {
+    const stateObj = this._stateObj('target_humidity');
+    if (!stateObj) return nothing;
+
+    // The device regulates to the target itself in constant-humidity mode, so the slider is
+    // locked while that mode is on.
+    const slider = this._renderNumber('target_humidity', enabled && !this._modeIsOn());
+    if (slider === nothing) return nothing;
+
+    return html`<div class="row">
+      <span class="row-label">${SLOT_LABELS.target_humidity}</span>
+      ${slider}
+    </div>`;
+  }
+
+  private _modeIsOn(): boolean {
+    const stateObj = this._stateObj('mode');
+    if (!stateObj || !this._isAvailable(stateObj)) return false;
+
+    const options = (stateObj.attributes.options as string[] | undefined) ?? [];
+    const onOption = this._modeOnOption(options);
+    if (!onOption) return false;
+
+    return ((this._pending.mode as string | undefined) ?? stateObj.state) === onOption;
   }
 
   private _renderToggle(slot: ToggleSlot): TemplateResult | typeof nothing {
@@ -286,15 +332,16 @@ export class HumidifierCard extends LitElement {
     </ha-select>`;
   }
 
-  private _renderFan(enabled: boolean): TemplateResult | typeof nothing {
-    const stateObj = this._stateObj('fan_level');
+  private _renderNumber(slot: NumberSlot, enabled: boolean): TemplateResult | typeof nothing {
+    const stateObj = this._stateObj(slot);
     if (!stateObj) return nothing;
 
     const available = this._isAvailable(stateObj);
-    const min = Number(stateObj.attributes.min ?? 1);
-    const max = Number(stateObj.attributes.max ?? 3);
+    const min = Number(stateObj.attributes.min ?? 0);
+    const max = Number(stateObj.attributes.max ?? 100);
     const step = Number(stateObj.attributes.step ?? 1);
-    const value = Number(this._pending.fan_level ?? stateObj.state);
+    const unit = (stateObj.attributes.unit_of_measurement as string | undefined) ?? '';
+    const value = Number(this._pending[slot] ?? stateObj.state);
     const safeValue = Number.isFinite(value) ? value : min;
 
     return html`<div class="slider-wrap">
@@ -305,11 +352,11 @@ export class HumidifierCard extends LitElement {
         step=${step}
         .value=${String(safeValue)}
         ?disabled=${!enabled || !available}
-        aria-label=${SLOT_LABELS.fan_level}
-        @input=${this._fanInput}
-        @change=${this._fanChange}
+        aria-label=${SLOT_LABELS[slot]}
+        @input=${(ev: Event) => this._numberInput(slot, ev)}
+        @change=${(ev: Event) => this._numberChange(slot, ev)}
       />
-      <span class="value">${available ? safeValue : '–'}</span>
+      <span class="value">${available ? `${safeValue}${unit}` : '–'}</span>
     </div>`;
   }
 
@@ -346,21 +393,22 @@ export class HumidifierCard extends LitElement {
     void this.hass.callService('select', 'select_option', { entity_id: entityId, option });
   }
 
-  private _fanInput = (ev: Event): void => {
+  /** Dragging only moves the local value; the service call waits for the commit. */
+  private _numberInput(slot: NumberSlot, ev: Event): void {
     const value = Number((ev.target as HTMLInputElement).value);
-    if (Number.isFinite(value)) this._setPending('fan_level', value);
-  };
+    if (Number.isFinite(value)) this._setPending(slot, value);
+  }
 
-  private _fanChange = (ev: Event): void => {
-    const entityId = this._entities.fan_level;
+  private _numberChange(slot: NumberSlot, ev: Event): void {
+    const entityId = this._entities[slot];
     if (!entityId || !this.hass) return;
 
     const value = Number((ev.target as HTMLInputElement).value);
     if (!Number.isFinite(value)) return;
 
-    this._setPending('fan_level', value);
+    this._setPending(slot, value);
     void this.hass.callService('number', 'set_value', { entity_id: entityId, value });
-  };
+  }
 
   private _moreInfo(entityId?: string): void {
     if (!entityId) return;
@@ -394,7 +442,11 @@ export class HumidifierCard extends LitElement {
         /* older frontends throw on the two-argument form */
       }
     }
-    return prettify(raw);
+    const unit =
+      value === undefined
+        ? ((stateObj.attributes.unit_of_measurement as string | undefined) ?? '')
+        : '';
+    return unit ? `${raw}${unit}` : prettify(raw);
   }
 
   private _title(power: HassEntity): string {

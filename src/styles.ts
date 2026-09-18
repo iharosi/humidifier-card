@@ -79,6 +79,23 @@ export const cardStyles = css`
     --mdc-icon-size: 15px;
   }
 
+  .readout {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    font-size: 17px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--primary-text-color);
+    cursor: pointer;
+    border-radius: 4px;
+  }
+
+  .readout:focus-visible {
+    outline: 2px solid var(--hc-active);
+    outline-offset: 2px;
+  }
+
   .conn {
     display: inline-flex;
     align-items: center;
@@ -123,8 +140,24 @@ export const cardStyles = css`
     font-size: 14px;
     font-variant-numeric: tabular-nums;
     color: var(--secondary-text-color);
-    min-width: 2ch;
+    min-width: 3ch;
     text-align: right;
+  }
+
+  /* ------------------------------------------------------------ target row */
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px 0;
+  }
+
+  .row-label {
+    font-size: 13px;
+    color: var(--secondary-text-color);
+    flex: 0 0 auto;
+    white-space: nowrap;
   }
 
   input[type='range'] {
