@@ -2,251 +2,346 @@ import { css } from 'lit';
 
 export const cardStyles = css`
   :host {
-    --hc-active: var(--state-switch-active-color, var(--primary-color, #03a9f4));
+    --hc-accent: var(--state-humidifier-on-color, var(--primary-color, #03a9f4));
+    --hc-idle-color: var(--disabled-text-color, #9e9e9e);
     --hc-bad: var(--error-color, #db4437);
   }
-
   ha-card {
-    display: flex;
-    flex-direction: column;
-    padding: 10px 0;
-  }
-
-  .header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 2px 12px 8px;
-  }
-
-  .header > ha-icon {
-    --mdc-icon-size: 26px;
-    color: var(--state-icon-color, var(--secondary-text-color));
-    flex: 0 0 auto;
-    transition: color 180ms ease-in-out;
-  }
-
-  .header > ha-icon.on {
-    color: var(--hc-active);
-  }
-
-  .title {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    min-width: 0;
-    flex: 1 1 auto;
-  }
-
-  .name,
-  .sub,
-  .conn {
-    cursor: pointer;
-    border-radius: 4px;
-    max-width: 100%;
+    display: block;
+    padding: 12px 14px;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
-
-  .name:focus-visible,
-  .sub:focus-visible,
-  .conn:focus-visible {
-    outline: 2px solid var(--hc-active);
-    outline-offset: 2px;
-  }
-
-  .name {
-    font-size: 15px;
-    font-weight: 500;
-    color: var(--primary-text-color);
-  }
-
-  .sub {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 13px;
-    color: var(--secondary-text-color);
-  }
-
-  .sub.bad {
-    color: var(--hc-bad);
-    font-weight: 500;
-  }
-
-  .sub ha-icon {
-    --mdc-icon-size: 15px;
-  }
-
-  .readout {
-    display: inline-flex;
-    align-items: center;
-    flex: 0 0 auto;
-    font-size: 17px;
-    font-weight: 500;
-    font-variant-numeric: tabular-nums;
-    color: var(--primary-text-color);
-    cursor: pointer;
-    border-radius: 4px;
-  }
-
-  .readout:focus-visible {
-    outline: 2px solid var(--hc-active);
-    outline-offset: 2px;
-  }
-
-  .conn {
-    display: inline-flex;
-    align-items: center;
-    flex: 0 0 auto;
-    color: var(--secondary-text-color);
-  }
-
-  .conn ha-icon {
-    --mdc-icon-size: 20px;
-  }
-
-  .conn.bad {
-    color: var(--hc-bad);
-  }
-
-  /* ------------------------------------------------------------ control strip */
-
-  .strip {
-    display: flex;
-    align-items: center;
-    gap: 8px 10px;
-    padding: 0 12px;
-    flex-wrap: wrap;
-  }
-
-  ha-select {
-    width: 112px;
-    flex: 0 0 auto;
-    --mdc-menu-min-width: 112px;
-    --mdc-typography-subtitle1-font-size: 14px;
-  }
-
-  .slider-wrap {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex: 1 1 90px;
-    min-width: 90px;
-  }
-
-  .value {
-    font-size: 14px;
-    font-variant-numeric: tabular-nums;
-    color: var(--secondary-text-color);
-    min-width: 3ch;
-    text-align: right;
-  }
-
-  /* ------------------------------------------------------------ target row */
-
   .row {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 12px 0;
+    gap: 14px;
   }
 
-  .row-label {
-    font-size: 13px;
-    color: var(--secondary-text-color);
-    flex: 0 0 auto;
+  /* -------- dial -------- */
+  .visual {
+    position: relative;
+    width: 68px;
+    height: 68px;
+    flex: 0 0 68px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    background: radial-gradient(
+      circle at 50% 50%,
+      color-mix(in srgb, var(--hc-accent) 18%, transparent),
+      transparent 70%
+    );
+    transition: background 0.4s ease;
+  }
+  .visual.off {
+    background: none;
+  }
+  .visual:focus-visible {
+    outline: 2px solid var(--hc-accent);
+    outline-offset: 2px;
+  }
+  svg {
+    width: 68px;
+    height: 68px;
+    display: block;
+    position: relative;
+  }
+  .ring {
+    fill: none;
+    stroke: var(--divider-color, rgba(127, 127, 127, 0.25));
+    stroke-width: 4;
+  }
+  .ring-value {
+    fill: none;
+    stroke: var(--hc-accent);
+    stroke-width: 4;
+    stroke-linecap: round;
+    transform: rotate(-90deg);
+    transform-origin: 50px 50px;
+    transition:
+      stroke-dashoffset 0.5s ease,
+      stroke 0.4s ease;
+  }
+  .target-mark {
+    fill: var(--card-background-color, #fff);
+    stroke: var(--hc-accent);
+    stroke-width: 2.5;
+    transition: stroke 0.4s ease;
+  }
+  .drop,
+  .mist {
+    fill: var(--hc-accent);
+    transition: fill 0.4s ease;
+  }
+  .shine {
+    fill: none;
+    stroke: var(--card-background-color, #fff);
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    opacity: 0.7;
+  }
+
+  /* mist: droplets lifting off the water, faster at higher fan levels */
+  .mist {
+    opacity: 0;
+  }
+  .visual.on .mist {
+    animation: mist calc(var(--spin, 2s) * 2) ease-out infinite;
+  }
+  .visual.on .mist:nth-of-type(2) {
+    animation-delay: calc(var(--spin, 2s) * 0.5);
+  }
+  .visual.on .mist:nth-of-type(3) {
+    animation-delay: calc(var(--spin, 2s) * 1);
+  }
+  .visual.on .mist:nth-of-type(4) {
+    animation-delay: calc(var(--spin, 2s) * 1.5);
+  }
+  @keyframes mist {
+    0% {
+      transform: translateY(0);
+      opacity: 0;
+    }
+    20% {
+      opacity: 0.9;
+    }
+    70% {
+      opacity: 0.45;
+    }
+    100% {
+      transform: translateY(-26px);
+      opacity: 0;
+    }
+  }
+
+  /* -------- body -------- */
+  .body {
+    flex: 1;
+    min-width: 0;
+  }
+  .head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .name {
+    font-size: 15px;
+    font-weight: 600;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    cursor: pointer;
+    border-radius: 4px;
   }
-
+  .name:focus-visible {
+    outline: 2px solid var(--hc-accent);
+    outline-offset: 2px;
+  }
+  .pct {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--hc-accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .pct.off {
+    color: var(--secondary-text-color);
+  }
   input[type='range'] {
     -webkit-appearance: none;
     appearance: none;
     width: 100%;
-    min-width: 60px;
-    height: 4px;
-    border-radius: 2px;
-    background: var(--divider-color, rgba(127, 127, 127, 0.4));
-    outline: none;
-    margin: 0;
+    height: 18px;
+    margin: 6px 0 2px;
+    background: none;
     cursor: pointer;
   }
-
-  input[type='range']:disabled {
-    cursor: default;
-    opacity: 0.45;
+  input[type='range']::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(
+      to right,
+      var(--hc-accent) var(--fill, 0%),
+      var(--divider-color, rgba(127, 127, 127, 0.25)) var(--fill, 0%)
+    );
   }
-
+  input[type='range']::-moz-range-track {
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(
+      to right,
+      var(--hc-accent) var(--fill, 0%),
+      var(--divider-color, rgba(127, 127, 127, 0.25)) var(--fill, 0%)
+    );
+  }
   input[type='range']::-webkit-slider-thumb {
     -webkit-appearance: none;
-    appearance: none;
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
+    margin-top: -4px;
     border-radius: 50%;
-    background: var(--hc-active);
-    border: none;
-    cursor: pointer;
+    background: var(--hc-accent);
+    box-shadow: 0 0 0 2px var(--card-background-color, #fff);
   }
-
   input[type='range']::-moz-range-thumb {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: var(--hc-active);
+    width: 14px;
+    height: 14px;
     border: none;
-    cursor: pointer;
+    border-radius: 50%;
+    background: var(--hc-accent);
+    box-shadow: 0 0 0 2px var(--card-background-color, #fff);
   }
-
+  input[type='range']:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
   input[type='range']:focus-visible {
-    outline: 2px solid var(--hc-active);
-    outline-offset: 4px;
+    outline: 2px solid var(--hc-accent);
+    outline-offset: 2px;
+    border-radius: 4px;
   }
 
-  .icon-toggle {
+  /* -------- chips -------- */
+  .chips {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px 2px 6px;
+    border-radius: 12px;
+    font-size: 12px;
+    line-height: 18px;
+    background: var(--secondary-background-color, rgba(127, 127, 127, 0.12));
+    color: var(--secondary-text-color);
+    cursor: pointer;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .chip:focus-visible {
+    outline: 2px solid var(--hc-accent);
+    outline-offset: 1px;
+  }
+  .chip ha-icon {
+    --mdc-icon-size: 14px;
+    flex: 0 0 auto;
+  }
+  .chip span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .chip.status {
+    flex: 0 1 auto;
+  }
+  .chip.bad {
+    color: var(--hc-bad);
+    background: color-mix(in srgb, var(--hc-bad) 12%, transparent);
+    font-weight: 500;
+  }
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: 0 0 8px;
+  }
+  .spacer {
+    flex: 1;
+  }
+
+  /* -------- presets: fan levels and toggles -------- */
+  .presets {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  /* pushed right, and onto its own line on narrow cards rather than overflowing */
+  .toggles {
+    margin-left: auto;
+  }
+  .preset-icon {
+    --mdc-icon-size: 14px;
+    color: var(--secondary-text-color);
+    flex: 0 0 auto;
+  }
+  .preset {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
-    padding: 0;
     border: none;
-    border-radius: 50%;
-    background: var(--divider-color, rgba(127, 127, 127, 0.18));
+    font: inherit;
+    font-size: 11px;
+    line-height: 18px;
+    min-width: 26px;
+    padding: 2px 7px;
+    border-radius: 11px;
     color: var(--secondary-text-color);
+    background: var(--secondary-background-color, rgba(127, 127, 127, 0.12));
     cursor: pointer;
     flex: 0 0 auto;
     transition:
-      background 160ms ease-in-out,
-      color 160ms ease-in-out;
+      background 0.3s ease,
+      color 0.3s ease;
   }
-
-  .icon-toggle ha-icon {
-    --mdc-icon-size: 20px;
+  .preset.toggle {
+    padding: 2px 6px;
   }
-
-  .icon-toggle.power {
-    width: 40px;
-    height: 40px;
+  .preset ha-icon {
+    --mdc-icon-size: 14px;
   }
-
-  .icon-toggle.power ha-icon {
-    --mdc-icon-size: 24px;
-  }
-
-  .icon-toggle.on {
-    background: var(--hc-active);
+  .preset.active {
+    background: var(--hc-accent);
     color: var(--text-primary-color, #fff);
   }
-
-  .icon-toggle:disabled {
-    opacity: 0.4;
+  .preset:disabled {
+    opacity: 0.45;
     cursor: default;
   }
+  .preset:focus-visible {
+    outline: 2px solid var(--hc-accent);
+    outline-offset: 1px;
+  }
 
-  .icon-toggle:focus-visible {
-    outline: 2px solid var(--hc-active);
-    outline-offset: 2px;
+  /* -------- power -------- */
+  .power {
+    flex: 0 0 auto;
+    border: none;
+    background: none;
+    padding: 6px;
+    border-radius: 50%;
+    cursor: pointer;
+    color: var(--secondary-text-color);
+    display: grid;
+    place-items: center;
+    transition:
+      color 0.3s ease,
+      background 0.3s ease;
+  }
+  .power.on {
+    color: var(--hc-accent);
+    background: color-mix(in srgb, var(--hc-accent) 16%, transparent);
+  }
+  .power:hover {
+    background: var(--secondary-background-color, rgba(127, 127, 127, 0.18));
+  }
+  .power:focus-visible {
+    outline: 2px solid var(--hc-accent);
+    outline-offset: 1px;
+  }
+  .unavailable {
+    opacity: 0.55;
+    pointer-events: none;
   }
 
   .warning {

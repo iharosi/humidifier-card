@@ -4,18 +4,16 @@ A Lovelace card for a humidifier that Home Assistant exposes as **separate ESPHo
 (`switch` / `select` / `number` / `binary_sensor` / `sensor`) rather than as a single
 `humidifier.*` or `fan.*` entity — for example a Xiaomi Smart Humidifier 2 flashed with ESPHome.
 
-![Humidifier Card layout](docs/card-layout.svg)
+![Humidifier Card in light and dark themes](images/screenshot.png)
 
-*Layout illustration — the card picks up your own Home Assistant theme.*
-
-- One `prefix:` line configures all nine entities.
-- Two lines: name with the live device fault, then one strip of controls.
-- Round buttons for power, mode, indicator light and buzzer; mode and fan level stay usable while the humidifier is off.
-- Current humidity on the title line, target humidity on its own slider row.
-- Device fault is shown by default and turns red when the humidifier reports one.
-- Optimistic updates, so the slider does not snap back while you drag it.
-- Follows your Home Assistant theme — no hardcoded colours.
-- Ships with a GUI editor.
+- Power toggle (tap the dial or the power button)
+- Target humidity slider, locked while constant-humidity mode is on
+- The dial's ring fills to the current humidity, with a marker at the target
+- Mist rises off the drop while it runs, faster at higher fan levels
+- Accent colour follows the room humidity (Dry → Very humid)
+- Fan level pills, plus mode, indicator light and buzzer toggles
+- Device fault chip, shown by default; turns red on a fault or when the device goes offline
+- One `prefix:` line configures all nine entities; works with the visual editor
 
 ## Installation
 
@@ -52,15 +50,15 @@ That derives all nine entities:
 
 | Slot | Entity | Shown as |
 | --- | --- | --- |
-| `power` | `switch.<prefix>_humidifier` | round power button |
-| `mode` | `select.<prefix>_mode` | button, or a dropdown with more than two options |
-| `fan_level` | `number.<prefix>_fan_level` | slider in the strip |
-| `target_humidity` | `number.<prefix>_target_humidity` | labelled slider row |
-| `humidity` | `sensor.<prefix>_humidity` | reading, top right |
-| `light` | `switch.<prefix>_indicator_light` | icon button |
-| `sound` | `switch.<prefix>_sound_buzzer` | icon button |
-| `connection` | `binary_sensor.<prefix>_connection_status` | icon, top right |
-| `fault` | `sensor.<prefix>_device_fault` | second title line |
+| `power` | `switch.<prefix>_humidifier` | power button; tapping the dial toggles it too |
+| `target_humidity` | `number.<prefix>_target_humidity` | slider, and the big value next to the name |
+| `humidity` | `sensor.<prefix>_humidity` | the dial's ring and the coloured chip |
+| `fan_level` | `number.<prefix>_fan_level` | one pill per level; sets the mist speed |
+| `mode` | `select.<prefix>_mode` | toggle pill, or a text pill with more than two options |
+| `light` | `switch.<prefix>_indicator_light` | toggle pill |
+| `sound` | `switch.<prefix>_sound_buzzer` | toggle pill |
+| `fault` | `sensor.<prefix>_device_fault` | status chip |
+| `connection` | `binary_sensor.<prefix>_connection_status` | status chip, only when offline |
 
 ## Options
 
@@ -69,10 +67,9 @@ That derives all nine entities:
 | `type` | string | **required** | `custom:humidifier-card` |
 | `prefix` | string | **required**¹ | Entity id prefix without the domain, e.g. `smart_humidifier` |
 | `name` | string | power entity's friendly name | Card title |
-| `icon` | string | `mdi:air-humidifier` | Header icon (falls back to `mdi:air-humidifier-off` when off) |
 | `mode_on` | string | second option | Mode option that counts as "on" — see [Mode](#mode) |
-| `show_status` | boolean | `true` | Show the device fault line and the connection icon |
-| `dim_when_off` | boolean | `false` | Grey out mode and fan level while the humidifier is off |
+| `show_status` | boolean | `true` | Show the device fault / offline chip |
+| `dim_when_off` | boolean | `false` | Disable target, fan level and mode while the humidifier is off |
 | `hide` | list | `[]` | Slots to leave out, e.g. `[sound, light]` |
 | `entities` | map | — | Per-slot entity overrides, any subset of the slots above |
 
@@ -83,8 +80,8 @@ setup still renders.
 
 ### Mode
 
-A mode select with exactly two options is drawn as a button rather than a dropdown, since a
-dropdown for two choices is mostly wasted space. The second option counts as "on":
+A mode select with exactly two options is drawn as a toggle pill. The second option counts as
+"on":
 
 ```yaml
 # ESPHome
@@ -92,20 +89,21 @@ select:
   - platform: miot
     name: "Mode"
     options:
-      0: "None"                # button off
-      1: "Constant Humidity"   # button on
+      0: "None"                # pill off
+      1: "Constant Humidity"   # pill on
 ```
 
-Set `mode_on` when the order is the other way round, or to force the button on a select with more
-than two options — every other option then counts as "off":
+Set `mode_on` when the order is the other way round, or to force the toggle on a select with more
+than two options — every other option then counts as "off". Without `mode_on`, a longer list
+gets a text pill showing the current mode that steps to the next one on tap.
 
 ```yaml
 mode_on: Constant Humidity
 ```
 
-Hover the button to see the current mode.
+Hover the pill to see the current mode.
 
-While the mode button is **on**, the target humidity slider is disabled — the device is
+While the mode is **on**, the target humidity slider is disabled — the device is
 regulating to the target itself. It becomes editable again when the mode is off.
 
 ### Full example
@@ -114,7 +112,6 @@ regulating to the target itself. It becomes editable again when the mode is off.
 type: custom:humidifier-card
 prefix: smart_humidifier
 name: Office Humidifier
-icon: mdi:air-humidifier
 mode_on: Constant Humidity
 show_status: true
 dim_when_off: false
@@ -124,6 +121,19 @@ hide:
 entities:
   fan_level: number.office_humidifier_speed
 ```
+
+## Humidity colours
+
+The card is tinted by the current humidity while it runs, and turns grey when it is off. The chip's
+dot keeps its colour either way.
+
+| Humidity | Label | Colour |
+| --- | --- | --- |
+| ≤ 30 % | Dry | orange |
+| ≤ 40 % | Slightly dry | yellow |
+| ≤ 60 % | Comfortable | blue |
+| ≤ 70 % | Humid | indigo |
+| > 70 % | Very humid | purple |
 
 ## Development
 

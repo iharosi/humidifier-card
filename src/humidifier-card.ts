@@ -1,34 +1,62 @@
-import { LitElement, html, nothing, type PropertyValues, type TemplateResult } from 'lit';
+import {
+  LitElement,
+  html,
+  nothing,
+  svg,
+  type PropertyValues,
+  type SVGTemplateResult,
+  type TemplateResult,
+} from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
+import { styleMap } from 'lit/directives/style-map.js';
 
 import './editor';
 import {
   CARD_NAME,
-  DEFAULT_ICON,
-  DEFAULT_ICON_OFF,
   EDITOR_NAME,
   MODE_ICON,
   NOMINAL_FAULTS,
+  PILL_ICONS,
   REPO_URL,
   SLOT_LABELS,
-  SLOT_TOGGLE_ICONS,
+  SPIN_FASTEST,
+  SPIN_SLOWEST,
   UNAVAILABLE_STATES,
   VERSION,
   type NumberSlot,
+  type PillSlot,
   type Slot,
-  type ToggleSlot,
 } from './const';
 import { resolveEntities, validateConfig, type ResolvedEntities } from './entities';
+import { clamp, humidityLevel, numericState } from './humidity';
 import { cardStyles } from './styles';
 import type { HassEntity, HomeAssistant, HumidifierCardConfig } from './types';
 
 const PENDING_TIMEOUT_MS = 3000;
 
+/** More fan pills than this would not fit next to the toggles. */
+const MAX_FAN_PILLS = 10;
+
+const RADIUS = 44;
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+
+const DROP = 'M50 34 C57 43 63 49 63 56 A13 13 0 0 1 37 56 C37 49 43 43 50 34 Z';
+
 /** "no_water" -> "No water". */
 function prettify(value: string): string {
   const spaced = value.replace(/_/g, ' ').trim();
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+interface NumberInfo {
+  entity: HassEntity;
+  available: boolean;
+  min: number;
+  max: number;
+  step: number;
+  unit: string;
+  value: number;
 }
 
 @customElement(CARD_NAME)
@@ -61,7 +89,7 @@ export class HumidifierCard extends LitElement {
   }
 
   public getCardSize(): number {
-    return this._stateObj('target_humidity') ? 3 : 2;
+    return 3;
   }
 
   public override disconnectedCallback(): void {
@@ -102,265 +130,363 @@ export class HumidifierCard extends LitElement {
       </ha-card>`;
     }
 
-    const isOn = power.state === 'on';
     const powerAvailable = this._isAvailable(power);
-    // Home Assistant keeps the mode and fan-level entities controllable while the humidifier is
-    // off, and the device accepts them, so only dim them when the user opts in.
+    const isOn = ((this._pending.power as string | undefined) ?? power.state) === 'on';
+    // Home Assistant keeps the mode, fan level and target entities controllable while the
+    // humidifier is off, and the device accepts them, so only dim them when the user opts in.
     const controlsEnabled = !this._config.dim_when_off || (isOn && powerAvailable);
 
-    const strip = [
-      this._renderToggle('power'),
-      this._renderMode(controlsEnabled),
-      this._renderNumber('fan_level', controlsEnabled),
-      this._renderToggle('light'),
-      this._renderToggle('sound'),
-    ].filter((part) => part !== nothing);
+    const humidity = this._stateObj('humidity');
+    const humidityValue = this._isAvailable(humidity) ? numericState(humidity) : null;
+    const level = humidityLevel(humidityValue);
+
+    // The humidity colour tints the card while the humidifier runs; when it is off everything
+    // falls back to the idle grey, except the humidity chip's dot.
+    const accent = isOn ? (humidity ? level.color : undefined) : 'var(--hc-idle-color)';
+
+    const target = this._numberInfo('target_humidity');
+    const fan = this._numberInfo('fan_level');
 
     return html`
-      <ha-card>
-        <div class="header">
-          <ha-icon
-            class=${classMap({ on: isOn && powerAvailable })}
-            .icon=${this._config.icon ?? (isOn ? DEFAULT_ICON : DEFAULT_ICON_OFF)}
-          ></ha-icon>
-          <div class="title">
-            <span
-              class="name"
-              role="button"
-              tabindex="0"
-              @click=${() => this._moreInfo(this._entities.power)}
-              @keydown=${(ev: KeyboardEvent) => this._activate(ev, this._entities.power)}
-              >${this._title(power)}</span
-            >
-            ${this._renderSubline(power)}
+      <ha-card
+        class=${classMap({ unavailable: !powerAvailable })}
+        style=${styleMap(accent ? { '--hc-accent': accent } : {})}
+      >
+        <div class="row">
+          ${this._renderDial(isOn, humidityValue, target, fan)}
+          <div class="body">
+            <div class="head">
+              <div
+                class="name"
+                role="button"
+                tabindex="0"
+                @click=${() => this._moreInfo(this._entities.power)}
+                @keydown=${(ev: KeyboardEvent) => this._activate(ev, this._entities.power)}
+              >
+                ${this._config.name ?? power.attributes.friendly_name ?? SLOT_LABELS.power}
+              </div>
+              <div class=${classMap({ pct: true, off: !isOn })}>
+                ${this._headline(isOn, powerAvailable, target)}
+              </div>
+              <button
+                class=${classMap({ power: true, on: isOn })}
+                type="button"
+                title=${SLOT_LABELS.power}
+                aria-label=${SLOT_LABELS.power}
+                aria-pressed=${String(isOn)}
+                ?disabled=${!powerAvailable}
+                @click=${this._togglePower}
+              >
+                <ha-icon .icon=${'mdi:power'}></ha-icon>
+              </button>
+            </div>
+            ${this._renderTargetSlider(target, controlsEnabled)}
+            <div class="chips">
+              ${this._renderHumidityChip(humidity, humidityValue, level.label, level.color)}
+              <div class="spacer"></div>
+              ${this._renderStatusChip()}
+            </div>
+            ${this._renderPresets(fan, controlsEnabled)}
           </div>
-          ${this._renderHumidity()} ${this._renderConnection()}
         </div>
-        ${strip.length ? html`<div class="strip">${strip}</div>` : nothing}
-        ${this._renderTargetRow(controlsEnabled)}
       </ha-card>
     `;
   }
 
-  /** Second title line: the device fault by default, falling back to the power summary. */
-  private _renderSubline(power: HassEntity): TemplateResult {
-    if (!this._isAvailable(power)) {
-      return html`<span class="sub bad">Unavailable</span>`;
-    }
-
-    const fault = this._stateObj('fault');
-    if (!this._config!.show_status || !fault) {
-      return html`<span class="sub">${this._summary(power)}</span>`;
-    }
-
-    if (!this._isAvailable(fault)) {
-      return this._sublineFor(fault, 'Fault unknown', false);
-    }
-
-    const faulty = !NOMINAL_FAULTS.has(fault.state.toLowerCase());
-    return this._sublineFor(fault, faulty ? this._format(fault) : 'No fault', faulty);
+  /** Big accent value next to the name: the target while on, otherwise the power state. */
+  private _headline(isOn: boolean, available: boolean, target?: NumberInfo): string {
+    if (!available) return '–';
+    if (!isOn) return 'Off';
+    return target?.available ? `${target.value}${target.unit}` : 'On';
   }
 
-  private _sublineFor(fault: HassEntity, text: string, bad: boolean): TemplateResult {
-    return html`<span
-      class=${classMap({ sub: true, bad })}
-      role="button"
-      tabindex="0"
-      title=${SLOT_LABELS.fault}
-      @click=${() => this._moreInfo(fault.entity_id)}
-      @keydown=${(ev: KeyboardEvent) => this._activate(ev, fault.entity_id)}
-      >${bad ? html`<ha-icon .icon=${'mdi:alert-circle'}></ha-icon>` : nothing}${text}</span
-    >`;
+  /**
+   * The dial: the ring fills to the current humidity, a marker sits at the target, and mist rises
+   * off a water drop faster the higher the fan level. Tap it to toggle the humidifier.
+   */
+  private _renderDial(
+    isOn: boolean,
+    humidity: number | null,
+    target?: NumberInfo,
+    fan?: NumberInfo,
+  ): TemplateResult {
+    const fanShare =
+      fan?.available && fan.max > fan.min
+        ? ((fan.value - fan.min) / (fan.max - fan.min)) * 100
+        : 50;
+    const duration = SPIN_SLOWEST - ((SPIN_SLOWEST - SPIN_FASTEST) * clamp(fanShare, 1, 100)) / 100;
+    const filled = humidity === null ? 0 : clamp(humidity, 0, 100) / 100;
+
+    return html`
+      <div
+        class=${classMap({ visual: true, on: isOn, off: !isOn })}
+        style=${styleMap({ '--spin': `${duration.toFixed(2)}s` })}
+        role="button"
+        tabindex="0"
+        title=${SLOT_LABELS.power}
+        @click=${this._togglePower}
+        @keydown=${(ev: KeyboardEvent) => {
+          if (ev.key !== 'Enter' && ev.key !== ' ') return;
+          ev.preventDefault();
+          this._togglePower();
+        }}
+      >
+        <svg viewBox="0 0 100 100" aria-hidden="true">
+          <defs>
+            <clipPath id="disc"><circle cx="50" cy="50" r="36"></circle></clipPath>
+          </defs>
+          <circle class="ring" cx="50" cy="50" r=${RADIUS}></circle>
+          ${svg`<circle
+            class="ring-value"
+            cx="50"
+            cy="50"
+            r=${RADIUS}
+            stroke-dasharray=${CIRCUMFERENCE}
+            stroke-dashoffset=${CIRCUMFERENCE * (1 - filled)}
+          ></circle>`}
+          ${target?.available ? this._renderTargetMarker(target.value) : nothing}
+          <g clip-path="url(#disc)">
+            <g class="mist"><circle cx="44" cy="40" r="3.2"></circle></g>
+            <g class="mist"><circle cx="52" cy="38" r="2.6"></circle></g>
+            <g class="mist"><circle cx="57" cy="41" r="3"></circle></g>
+            <g class="mist"><circle cx="48" cy="39" r="2.2"></circle></g>
+          </g>
+          <path class="drop" d=${DROP}></path>
+          <path class="shine" d="M44.5 53 a6.5 6.5 0 0 0 3 7.5"></path>
+        </svg>
+      </div>
+    `;
   }
 
-  private _renderConnection(): TemplateResult | typeof nothing {
-    const connection = this._stateObj('connection');
-    if (!this._config!.show_status || !connection) return nothing;
-
-    const available = this._isAvailable(connection);
-    const online = connection.state === 'on';
-    const label = available ? (online ? 'Online' : 'Offline') : 'Connection unknown';
-
-    return html`<span
-      class=${classMap({ conn: true, bad: available && !online })}
-      role="button"
-      tabindex="0"
-      title=${label}
-      aria-label=${label}
-      @click=${() => this._moreInfo(this._entities.connection)}
-      @keydown=${(ev: KeyboardEvent) => this._activate(ev, this._entities.connection)}
-    >
-      <ha-icon .icon=${online ? 'mdi:wifi' : 'mdi:wifi-off'}></ha-icon>
-    </span>`;
+  private _renderTargetMarker(target: number): SVGTemplateResult {
+    const angle = (clamp(target, 0, 100) / 100) * 2 * Math.PI - Math.PI / 2;
+    const x = 50 + RADIUS * Math.cos(angle);
+    const y = 50 + RADIUS * Math.sin(angle);
+    return svg`<circle class="target-mark" cx=${x.toFixed(2)} cy=${y.toFixed(2)} r="4.5"></circle>`;
   }
 
-  /** Current room humidity, read straight off the sensor entity. */
-  private _renderHumidity(): TemplateResult | typeof nothing {
-    const stateObj = this._stateObj('humidity');
-    if (!stateObj) return nothing;
-
-    const available = this._isAvailable(stateObj);
-    return html`<span
-      class="readout"
-      role="button"
-      tabindex="0"
-      title=${SLOT_LABELS.humidity}
-      aria-label=${SLOT_LABELS.humidity}
-      @click=${() => this._moreInfo(this._entities.humidity)}
-      @keydown=${(ev: KeyboardEvent) => this._activate(ev, this._entities.humidity)}
-      >${available ? this._format(stateObj) : '–'}</span
-    >`;
-  }
-
-  private _renderTargetRow(enabled: boolean): TemplateResult | typeof nothing {
-    const stateObj = this._stateObj('target_humidity');
-    if (!stateObj) return nothing;
+  private _renderTargetSlider(
+    target: NumberInfo | undefined,
+    controlsEnabled: boolean,
+  ): TemplateResult | typeof nothing {
+    if (!target) return nothing;
 
     // The device regulates to the target itself in constant-humidity mode, so the slider is
     // locked while that mode is on.
-    const slider = this._renderNumber('target_humidity', enabled && !this._modeIsOn());
-    if (slider === nothing) return nothing;
+    const enabled = target.available && controlsEnabled && !this._modeIsOn();
+    const fill =
+      target.max > target.min ? ((target.value - target.min) / (target.max - target.min)) * 100 : 0;
 
-    return html`<div class="row">
-      <span class="row-label">${SLOT_LABELS.target_humidity}</span>
-      ${slider}
-    </div>`;
+    return html`<input
+      type="range"
+      min=${target.min}
+      max=${target.max}
+      step=${target.step}
+      .value=${String(target.value)}
+      ?disabled=${!enabled}
+      title=${SLOT_LABELS.target_humidity}
+      aria-label=${SLOT_LABELS.target_humidity}
+      style=${styleMap({ '--fill': `${clamp(fill, 0, 100)}%` })}
+      @input=${(ev: Event) => this._numberInput('target_humidity', ev)}
+      @change=${(ev: Event) => this._numberChange('target_humidity', ev)}
+    />`;
   }
 
-  private _modeIsOn(): boolean {
+  private _renderHumidityChip(
+    humidity: HassEntity | undefined,
+    value: number | null,
+    label: string,
+    color: string,
+  ): TemplateResult | typeof nothing {
+    if (!humidity) return nothing;
+    const unit = (humidity.attributes.unit_of_measurement as string | undefined) ?? '%';
+
+    return html`
+      <div
+        class="chip humidity"
+        role="button"
+        tabindex="0"
+        title=${SLOT_LABELS.humidity}
+        @click=${() => this._moreInfo(this._entities.humidity)}
+        @keydown=${(ev: KeyboardEvent) => this._activate(ev, this._entities.humidity)}
+      >
+        <span class="dot" style=${styleMap({ background: color })}></span>
+        <span>
+          ${
+            value === null
+              ? `${SLOT_LABELS.humidity} ${this._format(humidity)}`
+              : `${label} · ${Math.round(value)}${unit}`
+          }
+        </span>
+      </div>
+    `;
+  }
+
+  /** Offline beats a device fault; a device fault is always shown, "No fault" included. */
+  private _renderStatusChip(): TemplateResult | typeof nothing {
+    if (!this._config!.show_status) return nothing;
+
+    const connection = this._stateObj('connection');
+    if (connection && this._isAvailable(connection) && connection.state !== 'on') {
+      return this._statusChip('connection', 'mdi:wifi-off', 'Offline', true);
+    }
+
+    const fault = this._stateObj('fault');
+    if (!fault) return nothing;
+    if (!this._isAvailable(fault)) {
+      return this._statusChip('fault', 'mdi:help-circle-outline', 'Fault unknown', false);
+    }
+
+    const faulty = !NOMINAL_FAULTS.has(fault.state.toLowerCase());
+    return faulty
+      ? this._statusChip('fault', 'mdi:alert-circle', this._format(fault), true)
+      : this._statusChip('fault', 'mdi:check-circle-outline', 'No fault', false);
+  }
+
+  private _statusChip(slot: Slot, icon: string, label: string, bad: boolean): TemplateResult {
+    const entityId = this._entities[slot];
+    return html`
+      <div
+        class=${classMap({ chip: true, status: true, bad })}
+        role="button"
+        tabindex="0"
+        title=${SLOT_LABELS[slot]}
+        @click=${() => this._moreInfo(entityId)}
+        @keydown=${(ev: KeyboardEvent) => this._activate(ev, entityId)}
+      >
+        <ha-icon .icon=${icon}></ha-icon>
+        <span>${label}</span>
+      </div>
+    `;
+  }
+
+  /** Fan level pills on the left, mode / light / buzzer toggles on the right. */
+  private _renderPresets(
+    fan: NumberInfo | undefined,
+    controlsEnabled: boolean,
+  ): TemplateResult | typeof nothing {
+    const fanPills = this._renderFanPills(fan, controlsEnabled);
+    const toggles = [
+      this._renderModePill(controlsEnabled),
+      this._renderPill('light'),
+      this._renderPill('sound'),
+    ].filter((part) => part !== nothing);
+
+    if (fanPills === nothing && !toggles.length) return nothing;
+
+    return html`
+      <div class="presets">
+        ${fanPills === nothing ? nothing : html`<div class="group levels">${fanPills}</div>`}
+        ${toggles.length ? html`<div class="group toggles">${toggles}</div>` : nothing}
+      </div>
+    `;
+  }
+
+  private _renderFanPills(
+    fan: NumberInfo | undefined,
+    controlsEnabled: boolean,
+  ): TemplateResult | typeof nothing {
+    if (!fan || fan.step <= 0) return nothing;
+
+    const levels: number[] = [];
+    for (let level = fan.min; level <= fan.max + 1e-9; level += fan.step) {
+      levels.push(Number(level.toFixed(4)));
+    }
+    if (levels.length > MAX_FAN_PILLS) return nothing;
+
+    const enabled = fan.available && controlsEnabled;
+
+    return html`
+      <ha-icon class="preset-icon" .icon=${'mdi:fan'} title=${SLOT_LABELS.fan_level}></ha-icon>
+      ${levels.map(
+        (level) => html`
+          <button
+            class=${classMap({ preset: true, active: fan.available && fan.value === level })}
+            type="button"
+            title=${`${SLOT_LABELS.fan_level} ${level}`}
+            aria-label=${`${SLOT_LABELS.fan_level} ${level}`}
+            aria-pressed=${String(fan.value === level)}
+            ?disabled=${!enabled}
+            @click=${() => this._setNumber('fan_level', level)}
+          >
+            ${level}
+          </button>
+        `,
+      )}
+    `;
+  }
+
+  private _renderModePill(enabled: boolean): TemplateResult | typeof nothing {
     const stateObj = this._stateObj('mode');
-    if (!stateObj || !this._isAvailable(stateObj)) return false;
+    if (!stateObj) return nothing;
 
+    const available = this._isAvailable(stateObj);
     const options = (stateObj.attributes.options as string[] | undefined) ?? [];
+    const current = (this._pending.mode as string | undefined) ?? stateObj.state;
+    const label = available
+      ? `${SLOT_LABELS.mode}: ${this._format(stateObj, current)}`
+      : SLOT_LABELS.mode;
     const onOption = this._modeOnOption(options);
-    if (!onOption) return false;
 
-    return ((this._pending.mode as string | undefined) ?? stateObj.state) === onOption;
+    if (onOption) {
+      const on = current === onOption;
+      const offOption = options.find((option) => option !== onOption);
+      return html`<button
+        class=${classMap({ preset: true, toggle: true, active: on && available })}
+        type="button"
+        title=${label}
+        aria-label=${label}
+        aria-pressed=${String(on)}
+        ?disabled=${!enabled || !available}
+        @click=${() => this._setMode(on ? offOption : onOption)}
+      >
+        <ha-icon .icon=${MODE_ICON}></ha-icon>
+      </button>`;
+    }
+
+    // More than two options: one pill showing the current mode that steps to the next on tap.
+    const next = options[(options.indexOf(current) + 1) % Math.max(options.length, 1)];
+    return html`<button
+      class="preset"
+      type="button"
+      title=${label}
+      aria-label=${label}
+      ?disabled=${!enabled || !available || options.length < 2}
+      @click=${() => this._setMode(next)}
+    >
+      ${available ? this._format(stateObj, current) : SLOT_LABELS.mode}
+    </button>`;
   }
 
-  private _renderToggle(slot: ToggleSlot): TemplateResult | typeof nothing {
+  private _renderPill(slot: PillSlot): TemplateResult | typeof nothing {
     const stateObj = this._stateObj(slot);
     if (!stateObj) return nothing;
 
     const available = this._isAvailable(stateObj);
-    const pending = this._pending[slot] as string | undefined;
-    const on = (pending ?? stateObj.state) === 'on';
-    const icons = SLOT_TOGGLE_ICONS[slot];
+    const on = ((this._pending[slot] as string | undefined) ?? stateObj.state) === 'on';
+    const icons = PILL_ICONS[slot];
 
     return html`<button
-      class=${classMap({ 'icon-toggle': true, power: slot === 'power', on: on && available })}
+      class=${classMap({ preset: true, toggle: true, active: on && available })}
       type="button"
-      ?disabled=${!available}
       title=${SLOT_LABELS[slot]}
       aria-label=${SLOT_LABELS[slot]}
       aria-pressed=${String(on)}
+      ?disabled=${!available}
       @click=${() => this._setSwitch(slot, !on)}
     >
       <ha-icon .icon=${on ? icons.on : icons.off}></ha-icon>
     </button>`;
   }
 
-  private _renderMode(enabled: boolean): TemplateResult | typeof nothing {
-    const stateObj = this._stateObj('mode');
-    if (!stateObj) return nothing;
-
-    const options = (stateObj.attributes.options as string[] | undefined) ?? [];
-    const onOption = this._modeOnOption(options);
-
-    return onOption
-      ? this._renderModeToggle(stateObj, options, onOption, enabled)
-      : this._renderModeSelect(stateObj, options, enabled);
-  }
-
-  /**
-   * A select with only two options reads better as a button than as a dropdown. `mode_on` names
-   * the option that counts as "on"; otherwise the second option is used.
-   */
-  private _modeOnOption(options: string[]): string | undefined {
-    return this._config!.mode_on ?? (options.length === 2 ? options[1] : undefined);
-  }
-
-  private _renderModeToggle(
-    stateObj: HassEntity,
-    options: string[],
-    onOption: string,
-    enabled: boolean,
-  ): TemplateResult {
-    const available = this._isAvailable(stateObj);
-    const current = (this._pending.mode as string | undefined) ?? stateObj.state;
-    const on = current === onOption;
-    const offOption = options.find((option) => option !== onOption);
-    const label = available
-      ? `${SLOT_LABELS.mode}: ${this._format(stateObj, current)}`
-      : SLOT_LABELS.mode;
-
-    return html`<button
-      class=${classMap({ 'icon-toggle': true, on: on && available })}
-      type="button"
-      ?disabled=${!enabled || !available}
-      title=${label}
-      aria-label=${label}
-      aria-pressed=${String(on)}
-      @click=${() => this._setMode(on ? offOption : onOption)}
-    >
-      <ha-icon .icon=${MODE_ICON}></ha-icon>
-    </button>`;
-  }
-
-  private _renderModeSelect(
-    stateObj: HassEntity,
-    options: string[],
-    enabled: boolean,
-  ): TemplateResult {
-    const available = this._isAvailable(stateObj);
-    const value = (this._pending.mode as string | undefined) ?? stateObj.state;
-
-    return html`<ha-select
-      naturalMenuWidth
-      fixedMenuPosition
-      aria-label=${SLOT_LABELS.mode}
-      .value=${options.includes(value) ? value : ''}
-      .disabled=${!enabled || !available}
-      @selected=${this._modeSelected}
-      @click=${(ev: Event) => ev.stopPropagation()}
-      @closed=${(ev: Event) => ev.stopPropagation()}
-    >
-      ${options.map(
-        (option) =>
-          html`<ha-list-item .value=${option}>${this._format(stateObj, option)}</ha-list-item>`,
-      )}
-    </ha-select>`;
-  }
-
-  private _renderNumber(slot: NumberSlot, enabled: boolean): TemplateResult | typeof nothing {
-    const stateObj = this._stateObj(slot);
-    if (!stateObj) return nothing;
-
-    const available = this._isAvailable(stateObj);
-    const min = Number(stateObj.attributes.min ?? 0);
-    const max = Number(stateObj.attributes.max ?? 100);
-    const step = Number(stateObj.attributes.step ?? 1);
-    const unit = (stateObj.attributes.unit_of_measurement as string | undefined) ?? '';
-    const value = Number(this._pending[slot] ?? stateObj.state);
-    const safeValue = Number.isFinite(value) ? value : min;
-
-    return html`<div class="slider-wrap">
-      <input
-        type="range"
-        min=${min}
-        max=${max}
-        step=${step}
-        .value=${String(safeValue)}
-        ?disabled=${!enabled || !available}
-        aria-label=${SLOT_LABELS[slot]}
-        @input=${(ev: Event) => this._numberInput(slot, ev)}
-        @change=${(ev: Event) => this._numberChange(slot, ev)}
-      />
-      <span class="value">${available ? `${safeValue}${unit}` : '–'}</span>
-    </div>`;
-  }
-
   // ------------------------------------------------------------------ actions
+
+  private _togglePower = (): void => {
+    const power = this._stateObj('power');
+    if (!power || !this._isAvailable(power)) return;
+    const on = ((this._pending.power as string | undefined) ?? power.state) === 'on';
+    this._setSwitch('power', !on);
+  };
 
   private _activate(ev: KeyboardEvent, entityId?: string): void {
     if (ev.key !== 'Enter' && ev.key !== ' ') return;
@@ -377,14 +503,6 @@ export class HumidifierCard extends LitElement {
     void this.hass.callService('switch', on ? 'turn_on' : 'turn_off', { entity_id: entityId });
   }
 
-  private _modeSelected = (ev: Event): void => {
-    const stateObj = this._stateObj('mode');
-    const value = (ev.target as { value?: string }).value;
-    if (!stateObj || !value || value === stateObj.state) return;
-
-    this._setMode(value);
-  };
-
   private _setMode(option?: string): void {
     const entityId = this._entities.mode;
     if (!option || !entityId || !this.hass) return;
@@ -400,11 +518,12 @@ export class HumidifierCard extends LitElement {
   }
 
   private _numberChange(slot: NumberSlot, ev: Event): void {
-    const entityId = this._entities[slot];
-    if (!entityId || !this.hass) return;
+    this._setNumber(slot, Number((ev.target as HTMLInputElement).value));
+  }
 
-    const value = Number((ev.target as HTMLInputElement).value);
-    if (!Number.isFinite(value)) return;
+  private _setNumber(slot: NumberSlot, value: number): void {
+    const entityId = this._entities[slot];
+    if (!entityId || !this.hass || !Number.isFinite(value)) return;
 
     this._setPending(slot, value);
     void this.hass.callService('number', 'set_value', { entity_id: entityId, value });
@@ -432,6 +551,45 @@ export class HumidifierCard extends LitElement {
     return !!stateObj && !UNAVAILABLE_STATES.has(stateObj.state);
   }
 
+  /** A number entity's range, unit and current value, with any pending value applied. */
+  private _numberInfo(slot: NumberSlot): NumberInfo | undefined {
+    const entity = this._stateObj(slot);
+    if (!entity) return undefined;
+
+    const min = Number(entity.attributes.min ?? 0);
+    const max = Number(entity.attributes.max ?? 100);
+    const value = Number(this._pending[slot] ?? entity.state);
+
+    return {
+      entity,
+      available: this._isAvailable(entity),
+      min,
+      max,
+      step: Number(entity.attributes.step ?? 1),
+      unit: (entity.attributes.unit_of_measurement as string | undefined) ?? '',
+      value: Number.isFinite(value) ? value : min,
+    };
+  }
+
+  /**
+   * A select with only two options reads better as a toggle than as a list. `mode_on` names the
+   * option that counts as "on"; otherwise the second option is used.
+   */
+  private _modeOnOption(options: string[]): string | undefined {
+    return this._config!.mode_on ?? (options.length === 2 ? options[1] : undefined);
+  }
+
+  private _modeIsOn(): boolean {
+    const stateObj = this._stateObj('mode');
+    if (!stateObj || !this._isAvailable(stateObj)) return false;
+
+    const options = (stateObj.attributes.options as string[] | undefined) ?? [];
+    const onOption = this._modeOnOption(options);
+    if (!onOption) return false;
+
+    return ((this._pending.mode as string | undefined) ?? stateObj.state) === onOption;
+  }
+
   private _format(stateObj: HassEntity, value?: string): string {
     const raw = value ?? stateObj.state;
     const formatter = this.hass?.formatEntityState;
@@ -447,22 +605,6 @@ export class HumidifierCard extends LitElement {
         ? ((stateObj.attributes.unit_of_measurement as string | undefined) ?? '')
         : '';
     return unit ? `${raw}${unit}` : prettify(raw);
-  }
-
-  private _title(power: HassEntity): string {
-    return this._config?.name ?? power.attributes.friendly_name ?? 'Humidifier';
-  }
-
-  private _summary(power: HassEntity): string {
-    const parts = [power.state === 'on' ? 'On' : 'Off'];
-    if (power.state === 'on') {
-      const mode = this._stateObj('mode');
-      if (this._isAvailable(mode)) parts.push(this._format(mode!));
-
-      const fan = this._stateObj('fan_level');
-      if (this._isAvailable(fan)) parts.push(`Fan ${Number(fan!.state)}`);
-    }
-    return parts.join(' · ');
   }
 
   private _setPending(slot: Slot, value: string | number): void {
@@ -527,7 +669,7 @@ window.customCards.push({
   type: CARD_NAME,
   name: 'Humidifier Card',
   description:
-    'Display and control an ESPHome humidifier exposed as switch/select/number entities.',
+    'Compact animated card for an ESPHome humidifier exposed as switch/select/number entities.',
   preview: false,
   documentationURL: REPO_URL,
 });
@@ -535,7 +677,7 @@ window.customCards.push({
 console.info(
   `%c ${CARD_NAME.toUpperCase()} %c v${VERSION} `,
   'color: white; background: #03a9f4; font-weight: 700;',
-  'color: #03a9f4; background: white; font-weight: 700;',
+  'color: #03a9f4; background: #1c1c1c; font-weight: 700;',
 );
 
 declare global {

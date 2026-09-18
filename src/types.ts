@@ -26,7 +26,6 @@ export interface HumidifierCardConfig {
   type: string;
   prefix?: string;
   name?: string;
-  icon?: string;
   show_status?: boolean;
   mode_on?: string;
   dim_when_off?: boolean;

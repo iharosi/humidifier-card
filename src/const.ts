@@ -1,6 +1,6 @@
 export const CARD_NAME = 'humidifier-card';
 export const EDITOR_NAME = 'humidifier-card-editor';
-export const VERSION = '0.5.0';
+export const VERSION = '0.6.0';
 export const REPO_URL = 'https://github.com/iharosi/humidifier-card';
 
 export type Slot =
@@ -16,7 +16,7 @@ export type Slot =
 
 export type NumberSlot = Extract<Slot, 'fan_level' | 'target_humidity'>;
 
-export type ToggleSlot = Extract<Slot, 'power' | 'light' | 'sound'>;
+export type PillSlot = Extract<Slot, 'light' | 'sound'>;
 
 export const SLOTS: readonly Slot[] = [
   'power',
@@ -55,20 +55,39 @@ export const SLOT_LABELS: Record<Slot, string> = {
   fault: 'Device fault',
 };
 
-/** Icons for the round toggle buttons in the control strip. */
-export const SLOT_TOGGLE_ICONS: Record<ToggleSlot, { on: string; off: string }> = {
-  power: { on: 'mdi:power', off: 'mdi:power' },
+/** Icons for the round toggle pills next to the fan levels. */
+export const PILL_ICONS: Record<PillSlot, { on: string; off: string }> = {
   light: { on: 'mdi:lightbulb', off: 'mdi:lightbulb-off-outline' },
   sound: { on: 'mdi:volume-high', off: 'mdi:volume-off' },
 };
 
-export const TOGGLE_SLOTS: readonly ToggleSlot[] = ['power', 'light', 'sound'] as const;
-
-/** Shown on the mode button when the mode select is rendered as a toggle. */
+/** Shown on the mode pill when the mode select is rendered as a toggle. */
 export const MODE_ICON = 'mdi:auto-mode';
 
-export const DEFAULT_ICON = 'mdi:air-humidifier';
-export const DEFAULT_ICON_OFF = 'mdi:air-humidifier-off';
+/** Relative humidity in % mapped to a label and the colour the card is tinted with. */
+export interface HumidityLevel {
+  max: number;
+  label: string;
+  color: string;
+}
+
+export const HUMIDITY_LEVELS: HumidityLevel[] = [
+  { max: 30, label: 'Dry', color: '#fb8c00' },
+  { max: 40, label: 'Slightly dry', color: '#fdd835' },
+  { max: 60, label: 'Comfortable', color: '#039be5' },
+  { max: 70, label: 'Humid', color: '#3949ab' },
+  { max: Infinity, label: 'Very humid', color: '#8e24aa' },
+];
+
+export const UNKNOWN_HUMIDITY: HumidityLevel = {
+  max: Infinity,
+  label: 'Unknown',
+  color: 'var(--disabled-text-color, #9e9e9e)',
+};
+
+/** Slowest and fastest mist cycle of the dial, in seconds. */
+export const SPIN_SLOWEST = 3.2;
+export const SPIN_FASTEST = 0.55;
 
 /** Device-fault states that mean "nothing is wrong". */
 export const NOMINAL_FAULTS = new Set(['none', 'no_faults', 'no fault', 'ok', 'normal', '0', '']);
